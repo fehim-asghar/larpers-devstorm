@@ -3,30 +3,50 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="TYPE//GHOST — A real-time competitive typing battle arena. Race against the ghost. Beat the record.">
-  <title>TYPE//GHOST — Typing Battle Arena</title>
+  <meta name="description" content="SYNTAX//RUSH — Real-time competitive browser typing speed battle. Race the ghost. Beat the record.">
+  <title>SYNTAX//RUSH — Browser Typing Battle Arena</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Zen+Dots&family=Chakra+Petch:ital,wght@1,700;1,900&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <!-- ═══════════════ SCREEN 1: LOBBY ═══════════════ -->
   <section id="lobby" class="screen active">
+    <!-- Live Miku Cyber Wallpaper Video -->
+    <video id="lobby-bg-video" class="lobby-bg-video" autoplay loop muted playsinline>
+      <source src="lobbyvideo.webm" type="video/webm">
+    </video>
+    <div class="lobby-bg-overlay"></div>
+
     <div class="lobby-content">
-      <h1 class="logo">TYPE<span class="logo-slash">//</span><span class="logo-ghost">GHOST</span></h1>
-      <p class="tagline">Race the ghost. Beat the record.</p>
+      <h1 class="logo">SYNTAX<span class="logo-slash">//</span><span class="logo-ghost">RUSH</span></h1>
+      <p class="tagline">Competitive Browser Speed Duel &middot; Race the Ghost</p>
 
       <div class="lobby-actions">
         <button id="btn-set-ghost" class="btn btn-primary">
-          <span class="btn-icon">⌨</span> Set a Ghost Run
+          <span class="btn-icon">⌨</span> Set Ghost
           <kbd>Space</kbd>
         </button>
         <button id="btn-race-ghost" class="btn btn-secondary" disabled>
-          <span class="btn-icon">👻</span> Race the Ghost
+          <span class="btn-icon">👻</span> Race Ghost
           <kbd>Enter</kbd>
         </button>
+        <button id="btn-online-duel" class="btn btn-online">
+          <span class="btn-icon">⚔️</span> Live 1v1 Duel
+          <kbd>M</kbd>
+        </button>
+      </div>
+
+      <!-- Matchmaking Modal Overlay -->
+      <div id="matchmaking-modal" class="matchmaking-modal hidden">
+        <div class="matchmaking-card">
+          <div class="radar-spinner"></div>
+          <h3 class="matchmaking-title">MATCHMAKING</h3>
+          <p id="matchmaking-status" class="matchmaking-desc">Searching for live rival...</p>
+          <button id="btn-cancel-match" class="btn btn-tertiary">Cancel</button>
+        </div>
       </div>
 
       <div id="ghost-preview" class="ghost-preview hidden">
@@ -38,7 +58,7 @@
         </div>
       </div>
 
-      <p class="hint">Press <kbd>Space</kbd> to record &middot; <kbd>Enter</kbd> to race</p>
+      <p class="hint">Press <kbd>Space</kbd> to record &middot; <kbd>Enter</kbd> to race &middot; <kbd>M</kbd> for 1v1</p>
     </div>
   </section>
 
@@ -70,7 +90,12 @@
       </div>
     </div>
 
-    <div id="mode-badge" class="mode-badge">RECORDING</div>
+    <div class="arena-controls-row">
+      <div id="mode-badge" class="mode-badge">RECORDING</div>
+      <button id="btn-audio-toggle" class="audio-toggle-btn" type="button" title="Toggle SFX and Tension Drone">
+        <span id="audio-toggle-icon">🔊</span> <span id="audio-toggle-text">AUDIO ON</span>
+      </button>
+    </div>
 
     <div class="text-container">
       <div id="text-display" class="text-display"></div>
@@ -98,7 +123,10 @@
   <!-- ═══════════════ SCREEN 3: RESULTS ═══════════════ -->
   <section id="results" class="screen">
     <div class="results-content">
-      <h2 id="result-banner" class="result-banner">GHOST RECORDED</h2>
+      <div class="results-header">
+        <h2 id="result-banner" class="result-banner">GHOST RECORDED</h2>
+        <div id="speed-tier-badge" class="speed-tier-badge">⚡ KEYBOARD ATHLETE</div>
+      </div>
 
       <div class="stats-comparison">
         <div class="stat-card stat-card-player">
@@ -106,6 +134,7 @@
           <div class="stat-row"><span class="stat-name">WPM</span><span id="stat-p-wpm" class="stat-val">0</span></div>
           <div class="stat-row"><span class="stat-name">Accuracy</span><span id="stat-p-acc" class="stat-val">0%</span></div>
           <div class="stat-row"><span class="stat-name">Time</span><span id="stat-p-time" class="stat-val">0s</span></div>
+          <div class="stat-row"><span class="stat-name">Consistency</span><span id="stat-p-cons" class="stat-val">95%</span></div>
         </div>
         <div id="stat-card-ghost" class="stat-card stat-card-ghost hidden">
           <h3 class="stat-card-title ghost-label">GHOST</h3>
@@ -119,6 +148,9 @@
       <canvas id="velocity-chart" class="velocity-chart" width="600" height="200"></canvas>
 
       <div class="results-actions">
+        <button id="btn-copy-card" class="btn btn-share">
+          <span class="btn-icon">📋</span> Copy Score Card
+        </button>
         <button id="btn-new-ghost" class="btn btn-primary">
           <span class="btn-icon">⌨</span> Set New Ghost
           <kbd>Tab</kbd>

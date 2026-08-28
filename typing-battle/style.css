@@ -3,25 +3,29 @@
    Zero frameworks. Pure CSS. Hardware-accelerated.
    ══════════════════════════════════════════════════════════ */
 
-/* ─── Design Tokens ─── */
+/* ─── Design Tokens (Hatsune Miku Vocaloid Cyber Theme) ─── */
 :root {
-  --bg-deep:       #08090C;
-  --bg-surface:    #161922;
-  --bg-card:       #1E2130;
-  --bg-card-hover: #262A3D;
-  --border-subtle: #2A2E42;
-  --text-primary:  #F0F0F5;
-  --text-muted:    #71717A;
-  --text-dim:      #3F4255;
+  --bg-deep:       #070913;
+  --bg-surface:    #0E1322;
+  --bg-card:       #141B2E;
+  --bg-card-hover: #1D263F;
+  --border-subtle: #24314E;
+  --text-primary:  #FFFFFF;
+  --text-muted:    #94A2BC;
+  --text-dim:      #4A5873;
   --accent-player: #00F2FE;
-  --accent-player-glow: rgba(0, 242, 254, 0.35);
-  --accent-ghost:  #FFB300;
-  --accent-ghost-glow: rgba(255, 179, 0, 0.35);
-  --accent-error:  #FF4757;
-  --accent-error-glow: rgba(255, 71, 87, 0.3);
-  --accent-success:#4ADE80;
+  --accent-player-glow: rgba(0, 242, 254, 0.55);
+  --accent-ghost:  #FF007F;
+  --accent-ghost-glow: rgba(255, 0, 127, 0.55);
+  --accent-pink:   #FF1493;
+  --accent-pink-glow: rgba(255, 20, 147, 0.5);
+  --accent-error:  #FF3366;
+  --accent-error-glow: rgba(255, 51, 102, 0.4);
+  --accent-success:#39FF88;
   --font-mono:     'JetBrains Mono', monospace;
-  --font-display:  'Outfit', sans-serif;
+  --font-race:     'Zen Dots', 'Chakra Petch', 'Orbitron', 'Syncopate', sans-serif;
+  --font-display:  'Zen Dots', 'Chakra Petch', 'Orbitron', 'Syncopate', sans-serif;
+  --font-body:     'Space Grotesk', sans-serif;
   --radius:        12px;
   --radius-sm:     8px;
   --transition:    150ms ease;
@@ -32,21 +36,30 @@
 
 html, body {
   height: 100%;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   background: var(--bg-deep);
   color: var(--text-primary);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
+  cursor: url('miku.gif') 16 16, auto;
 }
 
-/* ─── Screen System ─── */
+button, .text-container {
+  cursor: url('miku.gif') 16 16, pointer;
+}
+
+/* ─── Screen System (Fullscreen Centered) ─── */
 .screen {
   display: none;
-  position: absolute;
+  position: fixed;
   inset: 0;
+  width: 100vw;
+  height: 100vh;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 .screen.active { display: flex; }
 
@@ -56,47 +69,88 @@ kbd {
   padding: 2px 7px;
   font-family: var(--font-mono);
   font-size: 0.65rem;
-  background: var(--bg-surface);
+  background: rgba(14, 19, 34, 0.8);
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
   color: var(--text-muted);
   margin-left: 8px;
   vertical-align: middle;
+  text-transform: none;
 }
 
 /* ══════════════════════════════════════════════════════════
-   LOBBY
+   LOBBY & LIVE MIKU VIDEO WALLPAPER
    ══════════════════════════════════════════════════════════ */
+.lobby-bg-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.75;
+  filter: brightness(0.85) contrast(1.1);
+}
+
+.lobby-bg-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(7, 9, 19, 0.2) 0%, rgba(7, 9, 19, 0.8) 100%),
+              linear-gradient(to bottom, rgba(7, 9, 19, 0.1) 0%, rgba(7, 9, 19, 0.85) 100%);
+  z-index: 1;
+  pointer-events: none;
+}
+
 .lobby-content {
+  position: relative;
+  z-index: 2;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  justify-content: center;
+  gap: 22px;
+  max-width: 900px;
+  margin-top: 70px;
 }
 
+/* ─── Hatsune Miku Dual 3D Logo ─── */
 .logo {
-  font-family: var(--font-display);
-  font-size: 4.5rem;
-  font-weight: 800;
-  letter-spacing: -2px;
-  color: var(--text-primary);
-  line-height: 1;
+  font-family: var(--font-race);
+  font-size: 3.8rem;
+  font-weight: 400;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  color: #FFFFFF;
+  line-height: 1.1;
+  text-shadow: 
+    3px 3px 0px #FF007F,
+    6px 6px 0px #003366,
+    0 0 30px rgba(0, 242, 254, 0.7),
+    0 0 60px rgba(255, 0, 127, 0.4);
+  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.7));
 }
 .logo-slash {
-  color: var(--text-dim);
-  font-weight: 400;
+  color: #FF007F;
+  font-weight: 700;
+  text-shadow: 2px 2px 0px #00F2FE, 0 0 25px #FF007F;
 }
 .logo-ghost {
-  color: var(--accent-player);
-  text-shadow: 0 0 30px var(--accent-player-glow), 0 0 60px rgba(0, 242, 254, 0.15);
+  color: #00F2FE;
+  text-shadow: 
+    3px 3px 0px #FF007F,
+    6px 6px 0px #003366,
+    0 0 35px var(--accent-player-glow);
 }
 
 .tagline {
-  font-size: 1.1rem;
-  color: var(--text-muted);
+  font-family: var(--font-race);
+  font-size: 0.85rem;
+  color: #A4B5D6;
   font-weight: 400;
-  letter-spacing: 0.5px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
 }
 
 .lobby-actions {
@@ -111,70 +165,142 @@ kbd {
   align-items: center;
   gap: 10px;
   padding: 14px 28px;
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 600;
+  font-family: var(--font-race);
+  font-size: 0.85rem;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 2px;
+  text-transform: uppercase;
   border: none;
   border-radius: var(--radius);
   cursor: pointer;
   transition: all var(--transition);
   position: relative;
   overflow: hidden;
+  transform: skewX(-6deg);
 }
-.btn:active { transform: scale(0.97); }
+.btn:active { transform: scale(0.97) skewX(-6deg); }
 
 .btn-primary {
   background: var(--accent-player);
-  color: #08090C;
-  box-shadow: 0 0 20px var(--accent-player-glow);
+  color: #06080F;
+  box-shadow: 0 0 20px var(--accent-player-glow), 3px 3px 0px #003366;
 }
 .btn-primary:hover {
-  box-shadow: 0 0 35px var(--accent-player-glow), 0 4px 20px rgba(0,0,0,0.4);
-  transform: translateY(-2px);
+  box-shadow: 0 0 35px var(--accent-player-glow), 0 6px 20px rgba(0,0,0,0.5);
+  transform: translateY(-2px) skewX(-6deg);
 }
 
 .btn-secondary {
-  background: var(--bg-card);
+  background: rgba(20, 27, 46, 0.85);
+  backdrop-filter: blur(10px);
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
+  box-shadow: 3px 3px 0px #0D1322;
 }
 .btn-secondary:hover:not(:disabled) {
   background: var(--bg-card-hover);
   border-color: var(--accent-ghost);
   box-shadow: 0 0 20px var(--accent-ghost-glow);
-  transform: translateY(-2px);
+  transform: translateY(-2px) skewX(-6deg);
 }
 .btn-secondary:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
 
+.btn-online {
+  background: linear-gradient(135deg, #FF007F, #FF1493);
+  color: #FFFFFF;
+  box-shadow: 0 0 25px rgba(255, 0, 127, 0.6), 3px 3px 0px #4D0026;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+.btn-online:hover {
+  box-shadow: 0 0 40px rgba(255, 0, 127, 0.9), 0 6px 20px rgba(0,0,0,0.5);
+  transform: translateY(-2px) skewX(-6deg);
+}
+
 .btn-tertiary {
-  background: transparent;
+  background: rgba(14, 19, 34, 0.7);
+  backdrop-filter: blur(8px);
   color: var(--text-muted);
   border: 1px solid var(--border-subtle);
 }
 .btn-tertiary:hover {
   color: var(--text-primary);
   border-color: var(--text-muted);
+  transform: translateY(-2px) skewX(-6deg);
 }
 
 .btn-icon { font-size: 1.15rem; }
 
+/* ─── Matchmaking Modal ─── */
+.matchmaking-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(7, 9, 19, 0.85);
+  backdrop-filter: blur(16px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.matchmaking-card {
+  background: rgba(20, 27, 46, 0.95);
+  border: 1px solid rgba(255, 0, 127, 0.4);
+  border-radius: var(--radius);
+  padding: 36px 44px;
+  text-align: center;
+  box-shadow: 0 0 40px rgba(255, 0, 127, 0.3), 0 10px 40px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.matchmaking-title {
+  font-family: var(--font-race);
+  font-size: 1.4rem;
+  color: #FF007F;
+  letter-spacing: 4px;
+  text-shadow: 0 0 15px rgba(255, 0, 127, 0.6);
+}
+.matchmaking-desc {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.radar-spinner {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 0, 127, 0.2);
+  border-top-color: #FF007F;
+  border-right-color: #00F2FE;
+  animation: radarSpin 0.8s linear infinite;
+}
+@keyframes radarSpin {
+  to { transform: rotate(360deg); }
+}
+
 /* ─── Ghost Preview ─── */
 .ghost-preview {
   margin-top: 8px;
-  padding: 16px 24px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
+  padding: 16px 28px;
+  background: rgba(20, 27, 46, 0.8);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(36, 49, 78, 0.85);
   border-radius: var(--radius);
   text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
 }
 .ghost-preview-label {
+  font-family: var(--font-race);
   font-size: 0.75rem;
+  font-style: italic;
+  font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 1.5px;
+  letter-spacing: 3px;
   margin-bottom: 10px;
 }
 .ghost-preview-stats { display: flex; gap: 12px; justify-content: center; }
@@ -209,10 +335,13 @@ kbd {
 .hud-center { flex: 1; }
 .hud-label {
   display: block;
+  font-family: var(--font-race);
   font-size: 0.65rem;
+  font-style: italic;
+  font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 2px;
+  letter-spacing: 3px;
   margin-bottom: 4px;
 }
 .hud-value {
@@ -222,23 +351,59 @@ kbd {
   color: var(--text-primary);
 }
 
-/* ─── Mode Badge ─── */
-.mode-badge {
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  padding: 5px 16px;
-  border-radius: 20px;
+/* ─── Mode Badge & Controls ─── */
+.arena-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(90vw, 750px);
   margin-bottom: 16px;
+}
+
+.mode-badge {
+  font-family: var(--font-race);
+  font-size: 0.72rem;
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  padding: 6px 18px;
+  border-radius: 20px;
   background: rgba(0, 242, 254, 0.1);
   color: var(--accent-player);
   border: 1px solid rgba(0, 242, 254, 0.2);
+  transform: skewX(-6deg);
 }
 .mode-badge.ghost-mode {
   background: rgba(255, 179, 0, 0.1);
   color: var(--accent-ghost);
   border-color: rgba(255, 179, 0, 0.2);
+}
+
+.audio-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.audio-toggle-btn:hover {
+  border-color: var(--accent-player);
+  color: var(--accent-player);
+  box-shadow: 0 0 12px var(--accent-player-glow);
+}
+.audio-toggle-btn.muted {
+  color: var(--text-dim);
+  border-color: var(--border-subtle);
+  opacity: 0.6;
 }
 
 /* ─── Text Display ─── */
@@ -256,20 +421,57 @@ kbd {
 .text-display {
   font-family: var(--font-mono);
   font-size: 1.25rem;
-  line-height: 2;
+  line-height: 2.3;
   letter-spacing: 0.5px;
   word-break: break-word;
+  white-space: pre-wrap;
   position: relative;
 }
 
 /* Character states */
-.char { transition: color 60ms ease, text-shadow 150ms ease; }
-.char.untyped { color: var(--text-dim); }
-.char.current {
-  color: var(--text-primary);
-  border-bottom: 2px solid var(--accent-player);
-  animation: caretPulse 1s ease-in-out infinite;
+.char { 
+  display: inline-block;
+  white-space: pre-wrap;
+  transition: color 60ms ease, text-shadow 150ms ease; 
+  position: relative;
 }
+.char.space {
+  display: inline-block;
+  min-width: 0.6em;
+  white-space: pre;
+}
+.char.untyped { color: var(--text-dim); }
+
+/* ─── HATSUNE MIKU PIXEL CARET ─── */
+.char.current {
+  color: #00F2FE !important;
+  position: relative;
+  background: rgba(0, 242, 254, 0.18);
+  border-bottom: 2px solid #00F2FE;
+  border-radius: 4px;
+  text-shadow: 0 0 10px rgba(0, 242, 254, 0.8);
+}
+.char.current::before {
+  content: '';
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 36px;
+  background: url('miku.gif') no-repeat center / contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 10px rgba(0, 242, 254, 0.95));
+  pointer-events: none;
+  z-index: 10;
+  animation: mikuBounce 0.4s ease-in-out infinite alternate;
+}
+
+@keyframes mikuBounce {
+  0% { transform: translateX(-50%) translateY(0); }
+  100% { transform: translateX(-50%) translateY(-4px); }
+}
+
 .char.correct {
   color: var(--accent-player);
   text-shadow: 0 0 8px var(--accent-player-glow);
@@ -279,17 +481,37 @@ kbd {
   text-shadow: 0 0 8px var(--accent-error-glow);
   animation: charShake 80ms ease;
 }
+
+/* ─── SAKURA MIKU (HOT PINK) GHOST CURSOR ─── */
 .char.ghost-cursor {
-  background: rgba(255, 179, 0, 0.15);
+  background: rgba(255, 0, 127, 0.2);
   border-bottom: 2px solid var(--accent-ghost);
+  text-shadow: 0 0 8px var(--accent-ghost-glow);
+}
+.char.ghost-cursor::after {
+  content: '🌸';
+  font-size: 14px;
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: ghostFloat 0.6s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 8px rgba(255, 0, 127, 0.9));
+  pointer-events: none;
+  z-index: 9;
+}
+
+/* ─── MINESWEEPER CHAIN BLAST POP ─── */
+.char.blast-pop {
+  animation: mineBlast 0.45s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
 }
 
 /* Streak glow intensification */
 .text-display.streak .char.correct {
-  text-shadow: 0 0 12px var(--accent-player-glow), 0 0 25px rgba(0, 242, 254, 0.15);
+  text-shadow: 0 0 14px var(--accent-player-glow), 0 0 28px rgba(0, 242, 254, 0.35);
 }
 
-/* ─── Progress Bars ─── */
+/* ─── Progress Bars (Cyan vs. Hot Pink) ─── */
 .progress-section {
   width: min(90vw, 750px);
   margin-top: 20px;
@@ -299,16 +521,16 @@ kbd {
 }
 .progress-row { display: flex; align-items: center; gap: 12px; }
 .progress-label {
-  font-family: var(--font-mono);
+  font-family: var(--font-race);
   font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 1.5px;
+  letter-spacing: 2px;
   text-transform: uppercase;
-  width: 50px;
+  width: 55px;
   text-align: right;
 }
-.player-label { color: var(--accent-player); }
-.ghost-label { color: var(--accent-ghost); }
+.player-label { color: var(--accent-player); text-shadow: 0 0 10px var(--accent-player-glow); }
+.ghost-label  { color: var(--accent-ghost);  text-shadow: 0 0 10px var(--accent-ghost-glow);  }
 
 .progress-track {
   flex: 1;
@@ -324,12 +546,12 @@ kbd {
   transition: width 80ms ease-out;
 }
 .progress-player {
-  background: linear-gradient(90deg, var(--accent-player), #00d4ff);
-  box-shadow: 0 0 10px var(--accent-player-glow);
+  background: linear-gradient(90deg, #00F2FE, #39C5BB);
+  box-shadow: 0 0 12px var(--accent-player-glow);
 }
 .progress-ghost {
-  background: linear-gradient(90deg, var(--accent-ghost), #ffc940);
-  box-shadow: 0 0 10px var(--accent-ghost-glow);
+  background: linear-gradient(90deg, #FF007F, #FF69B4);
+  box-shadow: 0 0 12px var(--accent-ghost-glow);
 }
 
 /* ─── Countdown Overlay ─── */
@@ -399,24 +621,27 @@ kbd {
 }
 
 .result-banner {
-  font-family: var(--font-display);
-  font-size: 2.5rem;
-  font-weight: 800;
-  letter-spacing: 2px;
+  font-family: var(--font-race);
+  font-size: 2.3rem;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 4px;
+  text-transform: uppercase;
   text-align: center;
+  transform: skewX(-8deg);
 }
 .result-banner.win {
   color: var(--accent-player);
-  text-shadow: 0 0 30px var(--accent-player-glow);
+  text-shadow: 3px 3px 0px #003366, 0 0 35px var(--accent-player-glow);
   animation: bannerGlow 1.5s ease-in-out infinite alternate;
 }
 .result-banner.lose {
   color: var(--accent-ghost);
-  text-shadow: 0 0 30px var(--accent-ghost-glow);
+  text-shadow: 3px 3px 0px #4D3000, 0 0 35px var(--accent-ghost-glow);
 }
 .result-banner.recorded {
   color: var(--accent-success);
-  text-shadow: 0 0 20px rgba(74, 222, 128, 0.3);
+  text-shadow: 3px 3px 0px #0D331A, 0 0 25px rgba(74, 222, 128, 0.4);
 }
 
 /* ─── Stat Cards ─── */
@@ -432,14 +657,17 @@ kbd {
   border-radius: var(--radius);
   padding: 20px 24px;
   backdrop-filter: blur(12px);
+  box-shadow: 4px 4px 0px #090D17;
 }
 .stat-card-player { border-top: 3px solid var(--accent-player); }
 .stat-card-ghost  { border-top: 3px solid var(--accent-ghost);  }
 
 .stat-card-title {
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 2px;
+  font-family: var(--font-race);
+  font-size: 0.8rem;
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: 3px;
   text-transform: uppercase;
   margin-bottom: 14px;
 }
@@ -480,9 +708,77 @@ kbd {
   justify-content: center;
 }
 
+/* ─── Results Header & Badges ─── */
+.results-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.speed-tier-badge {
+  display: inline-block;
+  padding: 6px 20px;
+  border-radius: 20px;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  background: rgba(0, 242, 254, 0.12);
+  color: var(--accent-player);
+  border: 1px solid var(--accent-player);
+  box-shadow: 0 0 15px var(--accent-player-glow);
+}
+
+.btn-share {
+  background: rgba(255, 179, 0, 0.15);
+  color: var(--accent-ghost);
+  border: 1px solid var(--accent-ghost);
+}
+.btn-share:hover {
+  background: var(--accent-ghost);
+  color: #08090C;
+  box-shadow: 0 0 25px var(--accent-ghost-glow);
+  transform: translateY(-2px);
+}
+
 /* ══════════════════════════════════════════════════════════
    ANIMATIONS
    ══════════════════════════════════════════════════════════ */
+@keyframes pacmanChomp {
+  0% {
+    clip-path: polygon(100% 50%, 50% 50%, 100% 50%, 100% 0, 0 0, 0 100%, 100% 100%);
+  }
+  100% {
+    clip-path: polygon(100% 88%, 50% 50%, 100% 12%, 100% 0, 0 0, 0 100%, 100% 100%);
+  }
+}
+
+@keyframes ghostFloat {
+  0% { transform: translateX(-50%) translateY(0); }
+  100% { transform: translateX(-50%) translateY(-5px); }
+}
+
+@keyframes mineBlast {
+  0% {
+    transform: scale(1);
+    color: #FFFFFF;
+    text-shadow: 0 0 15px #FFFFFF, 0 0 30px var(--accent-player);
+  }
+  30% {
+    transform: scale(2.2) translateY(-10px);
+    color: #FF0055;
+    text-shadow: 0 0 25px #FF0055, 0 0 50px #FF5500;
+    filter: brightness(2.5);
+  }
+  100% {
+    transform: scale(0) translateY(-35px) rotate(45deg);
+    opacity: 0;
+    filter: blur(4px);
+  }
+}
+
 @keyframes caretPulse {
   0%, 100% { border-bottom-color: var(--accent-player); }
   50% { border-bottom-color: transparent; }
