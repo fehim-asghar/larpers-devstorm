@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="TYPE//GHOST — A real-time competitive typing battle arena. Race against the ghost. Beat the record.">
+  <title>TYPE//GHOST — Typing Battle Arena</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ═══════════════ SCREEN 1: LOBBY ═══════════════ -->
+  <section id="lobby" class="screen active">
+    <div class="lobby-content">
+      <h1 class="logo">TYPE<span class="logo-slash">//</span><span class="logo-ghost">GHOST</span></h1>
+      <p class="tagline">Race the ghost. Beat the record.</p>
+
+      <div class="lobby-actions">
+        <button id="btn-set-ghost" class="btn btn-primary">
+          <span class="btn-icon">⌨</span> Set a Ghost Run
+          <kbd>Space</kbd>
+        </button>
+        <button id="btn-race-ghost" class="btn btn-secondary" disabled>
+          <span class="btn-icon">👻</span> Race the Ghost
+          <kbd>Enter</kbd>
+        </button>
+      </div>
+
+      <div id="ghost-preview" class="ghost-preview hidden">
+        <p class="ghost-preview-label">Ghost on file</p>
+        <div class="ghost-preview-stats">
+          <span id="ghost-preview-wpm" class="stat-pill">— WPM</span>
+          <span id="ghost-preview-acc" class="stat-pill">— ACC</span>
+          <span id="ghost-preview-time" class="stat-pill">— s</span>
+        </div>
+      </div>
+
+      <p class="hint">Press <kbd>Space</kbd> to record &middot; <kbd>Enter</kbd> to race</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════ SCREEN 2: ARENA ═══════════════ -->
+  <section id="arena" class="screen">
+    <!-- Countdown overlay -->
+    <div id="countdown" class="countdown hidden">
+      <span id="countdown-num" class="countdown-num">3</span>
+    </div>
+
+    <!-- Pause overlay -->
+    <div id="pause-overlay" class="pause-overlay hidden">
+      <span class="pause-text">PAUSED</span>
+      <span class="pause-sub">Click to resume</span>
+    </div>
+
+    <div class="arena-hud">
+      <div class="hud-item">
+        <span class="hud-label">WPM</span>
+        <span id="hud-wpm" class="hud-value">0</span>
+      </div>
+      <div class="hud-item hud-center">
+        <span class="hud-label">TIME</span>
+        <span id="hud-time" class="hud-value">00:00.0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">ACC</span>
+        <span id="hud-acc" class="hud-value">100%</span>
+      </div>
+    </div>
+
+    <div id="mode-badge" class="mode-badge">RECORDING</div>
+
+    <div class="text-container">
+      <div id="text-display" class="text-display"></div>
+    </div>
+
+    <div class="progress-section">
+      <div class="progress-row">
+        <span class="progress-label player-label">YOU</span>
+        <div class="progress-track">
+          <div id="progress-player" class="progress-fill progress-player"></div>
+        </div>
+      </div>
+      <div id="ghost-progress-row" class="progress-row hidden">
+        <span class="progress-label ghost-label">GHOST</span>
+        <div class="progress-track">
+          <div id="progress-ghost" class="progress-fill progress-ghost"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hidden input to capture keystrokes -->
+    <input id="hidden-input" type="text" class="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  </section>
+
+  <!-- ═══════════════ SCREEN 3: RESULTS ═══════════════ -->
+  <section id="results" class="screen">
+    <div class="results-content">
+      <h2 id="result-banner" class="result-banner">GHOST RECORDED</h2>
+
+      <div class="stats-comparison">
+        <div class="stat-card stat-card-player">
+          <h3 class="stat-card-title player-label">YOU</h3>
+          <div class="stat-row"><span class="stat-name">WPM</span><span id="stat-p-wpm" class="stat-val">0</span></div>
+          <div class="stat-row"><span class="stat-name">Accuracy</span><span id="stat-p-acc" class="stat-val">0%</span></div>
+          <div class="stat-row"><span class="stat-name">Time</span><span id="stat-p-time" class="stat-val">0s</span></div>
+        </div>
+        <div id="stat-card-ghost" class="stat-card stat-card-ghost hidden">
+          <h3 class="stat-card-title ghost-label">GHOST</h3>
+          <div class="stat-row"><span class="stat-name">WPM</span><span id="stat-g-wpm" class="stat-val">0</span></div>
+          <div class="stat-row"><span class="stat-name">Accuracy</span><span id="stat-g-acc" class="stat-val">0%</span></div>
+          <div class="stat-row"><span class="stat-name">Time</span><span id="stat-g-time" class="stat-val">0s</span></div>
+          <div class="stat-row stat-row-delta"><span class="stat-name">Delta</span><span id="stat-delta" class="stat-val">+0s</span></div>
+        </div>
+      </div>
+
+      <canvas id="velocity-chart" class="velocity-chart" width="600" height="200"></canvas>
+
+      <div class="results-actions">
+        <button id="btn-new-ghost" class="btn btn-primary">
+          <span class="btn-icon">⌨</span> Set New Ghost
+          <kbd>Tab</kbd>
+        </button>
+        <button id="btn-race-again" class="btn btn-secondary" disabled>
+          <span class="btn-icon">🔁</span> Race Again
+          <kbd>Space</kbd>
+        </button>
+        <button id="btn-back-lobby" class="btn btn-tertiary">
+          <kbd>Esc</kbd> Lobby
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
