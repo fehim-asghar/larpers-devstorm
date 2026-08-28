@@ -1,0 +1,13 @@
+# Ignore non-game project folders
+/.agents/
+/context/
+/media/
+
+# Ignore Node.js dependencies
+node_modules/
+package-lock.json
+
+# System & log files
+.DS_Store
+Thumbs.db
+*.log
