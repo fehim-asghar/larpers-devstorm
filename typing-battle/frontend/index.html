@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SYNTAX//RUSH — Real-time competitive browser typing speed battle. Race the ghost. Beat the record.">
+  <title>SYNTAX//RUSH — Browser Typing Battle Arena</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@600;700&family=Zen+Dots&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+
+  <!-- ═══════════════ SCREEN 1: LOBBY ═══════════════ -->
+  <section id="lobby" class="screen active">
+    <!-- Live Miku Cyber Wallpaper Video -->
+    <video id="lobby-bg-video" class="lobby-bg-video" autoplay loop muted playsinline>
+      <source src="lobbyvideo.webm" type="video/webm">
+    </video>
+    <div class="lobby-bg-overlay"></div>
+
+    <!-- Top Profile & Header Bar (Uniform Rounded Rectangles) -->
+    <header class="lobby-top-bar">
+      <button id="btn-open-leaderboard" class="top-bar-card btn-leaderboard-card" title="View Rankings & Match History">
+        <span class="card-icon">🏆</span> Leaderboard
+      </button>
+      <div id="profile-pill" class="top-bar-card profile-card" title="Click to view profile / logout">
+        <img id="user-avatar" class="user-avatar" src="miku.gif" alt="Avatar">
+        <div class="profile-card-info">
+          <span id="user-name" class="user-name">Guest</span>
+          <span id="user-mmr-badge" class="user-mmr-badge">500 MMR · 🌸 Viper</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Global Leaderboard & Match History Modal Overlay -->
+    <div id="leaderboard-modal" class="leaderboard-modal hidden">
+      <div class="leaderboard-card">
+        <div class="leaderboard-header">
+          <div class="leaderboard-title-group">
+            <span class="leaderboard-icon">🏆</span>
+            <h3 class="leaderboard-title">BATTLE ARENA</h3>
+          </div>
+          <button id="btn-close-leaderboard" class="btn-close-modal" aria-label="Close">&times;</button>
+        </div>
+
+        <div class="modal-tabs">
+          <button id="tab-leaderboard-rankings" class="modal-tab active">🏆 Global Rankings</button>
+          <button id="tab-leaderboard-history" class="modal-tab">📜 Match History</button>
+        </div>
+        
+        <!-- View 1: Global Rankings -->
+        <div id="view-leaderboard-rankings" class="tab-view active">
+          <p class="leaderboard-subtitle">Top 50 Speed Duellists worldwide</p>
+          <div class="leaderboard-table-container">
+            <table class="leaderboard-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>RACER</th>
+                  <th>MMR</th>
+                  <th>TIER</th>
+                  <th>BEST WPM</th>
+                  <th>WIN RATE</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboard-tbody">
+                <!-- Dynamically populated rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- View 2: Match History -->
+        <div id="view-leaderboard-history" class="tab-view hidden">
+          <p class="leaderboard-subtitle">Recent 1v1 Ranked & Custom Battle Logs</p>
+          <div id="match-history-list" class="match-history-list">
+            <!-- Dynamically populated match cards -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lobby-content">
+      <h1 class="logo">SYNTAX<span class="logo-slash">//</span><span class="logo-ghost">RUSH</span></h1>
+      <p class="tagline">Competitive Browser Speed Duel &middot; Race the Ghost</p>
+
+      <div class="lobby-actions">
+        <button id="btn-set-ghost" class="btn btn-primary">
+          <span class="btn-icon">⌨</span> Set Ghost
+          <kbd>Space</kbd>
+        </button>
+        <button id="btn-race-ghost" class="btn btn-secondary" disabled>
+          <span class="btn-icon">👻</span> Race Ghost
+          <kbd>Enter</kbd>
+        </button>
+        <button id="btn-online-duel" class="btn btn-online">
+          <span class="btn-icon">⚔️</span> Ranked 1v1 Duel
+          <kbd>M</kbd>
+        </button>
+        <button id="btn-custom-room" class="btn btn-custom">
+          <span class="btn-icon">🎮</span> Custom Room
+          <kbd>C</kbd>
+        </button>
+      </div>
+
+      <!-- Custom Unranked Room Modal -->
+      <div id="custom-room-modal" class="custom-room-modal hidden">
+        <div class="custom-room-card">
+          <div class="custom-room-header">
+            <div class="custom-room-title-group">
+              <span class="custom-room-icon">🎮</span>
+              <h3 class="custom-room-title">FRIEND LOBBY</h3>
+            </div>
+            <button id="btn-close-custom-room" class="btn-close-modal" aria-label="Close">&times;</button>
+          </div>
+          <p class="custom-room-subtitle">Unranked private duel with friends · Zero login required</p>
+
+          <div class="room-tabs">
+            <button id="tab-create-room" class="room-tab active">Create Room</button>
+            <button id="tab-join-room" class="room-tab">Join Room</button>
+          </div>
+
+          <!-- Tab 1: Create View -->
+          <div id="room-create-panel" class="room-panel">
+            <p class="room-info-label">Share this code or link with your friend:</p>
+            <div class="room-code-badge" id="display-room-code">RUSH-42</div>
+            <div class="room-copy-group">
+              <button id="btn-copy-code" class="btn btn-secondary">
+                <span class="btn-icon">📋</span> Copy Code
+              </button>
+              <button id="btn-copy-link" class="btn btn-secondary">
+                <span class="btn-icon">🔗</span> Copy Link
+              </button>
+            </div>
+            <div class="room-status-pulse">
+              <div class="pulse-dot"></div>
+              <span id="room-waiting-status">Waiting for friend to enter code...</span>
+            </div>
+          </div>
+
+          <!-- Tab 2: Join View -->
+          <div id="room-join-panel" class="room-panel hidden">
+            <p class="room-info-label">Enter the 4-character room code:</p>
+            <div class="join-input-group">
+              <input type="text" id="input-room-code" class="input-room-code" placeholder="e.g. RUSH-42" maxlength="10" autocomplete="off">
+              <button id="btn-join-room-submit" class="btn btn-primary">
+                <span class="btn-icon">⚡</span> Join & Race
+              </button>
+            </div>
+            <p id="room-join-error" class="room-error-msg hidden"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ranked Auth Modal Overlay -->
+      <div id="auth-modal" class="auth-modal hidden">
+        <div class="auth-card">
+          <div class="auth-icon">⚔️</div>
+          <h3 class="auth-title">RANKED AUTHENTICATION</h3>
+          <p class="auth-desc">Google Sign-In is required for Ranked matchmaking to verify identity and record persistent MMR rating.</p>
+          
+          <div id="google-btn-container" class="google-btn-container"></div>
+          
+          <div class="auth-divider"><span>OR ONE-CLICK DEMO</span></div>
+          
+          <button id="btn-demo-signin" class="btn btn-demo-auth">
+            <span class="btn-icon">⚡</span> 1-Click Sign-In (Faheem)
+          </button>
+          
+          <button id="btn-cancel-auth" class="btn btn-tertiary">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Matchmaking Modal Overlay -->
+      <div id="matchmaking-modal" class="matchmaking-modal hidden">
+        <div class="matchmaking-card">
+          <div class="radar-spinner"></div>
+          <h3 class="matchmaking-title">MATCHMAKING</h3>
+          <p id="matchmaking-status" class="matchmaking-desc">Searching for live rival...</p>
+          <button id="btn-cancel-match" class="btn btn-tertiary">Cancel</button>
+        </div>
+      </div>
+
+      <div id="ghost-preview" class="ghost-preview hidden">
+        <p class="ghost-preview-label">Ghost on file</p>
+        <div class="ghost-preview-stats">
+          <span id="ghost-preview-wpm" class="stat-pill">— WPM</span>
+          <span id="ghost-preview-acc" class="stat-pill">— ACC</span>
+          <span id="ghost-preview-time" class="stat-pill">— s</span>
+        </div>
+      </div>
+
+      <p class="hint">Press <kbd>Space</kbd> to record &middot; <kbd>Enter</kbd> to race &middot; <kbd>M</kbd> for 1v1 &middot; <kbd>C</kbd> for Custom</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════ SCREEN 1.5: TEKKEN VS CLASH ═══════════════ -->
+  <section id="vs-screen" class="screen vs-screen">
+    <div class="vs-bg-speedlines"></div>
+
+    <!-- P1 Fighter (Left Cyan) -->
+    <div class="vs-fighter vs-fighter-p1">
+      <div class="vs-fighter-content">
+        <div class="vs-avatar-wrapper p1-avatar-wrap">
+          <img id="vs-p1-avatar" class="vs-avatar" src="miku.gif" alt="P1 Avatar">
+          <div class="vs-avatar-glow p1-glow"></div>
+        </div>
+        <div class="vs-fighter-info">
+          <span class="vs-tag p1-tag">PLAYER 1</span>
+          <h2 id="vs-p1-name" class="vs-name">YOU</h2>
+          <span id="vs-p1-badge" class="vs-badge p1-badge">500 MMR · 🌸 VIPER</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center VS Emblem & Slash -->
+    <div class="vs-center-burst">
+      <div class="vs-slash-line"></div>
+      <div class="vs-logo-emblem">VS</div>
+      <div class="vs-fight-text">FIGHT!</div>
+    </div>
+
+    <!-- P2 Fighter (Right Magenta) -->
+    <div class="vs-fighter vs-fighter-p2">
+      <div class="vs-fighter-content">
+        <div class="vs-avatar-wrapper p2-avatar-wrap">
+          <img id="vs-p2-avatar" class="vs-avatar" src="miku.gif" alt="P2 Avatar">
+          <div class="vs-avatar-glow p2-glow"></div>
+        </div>
+        <div class="vs-fighter-info">
+          <span class="vs-tag p2-tag">RIVAL</span>
+          <h2 id="vs-p2-name" class="vs-name">RIVAL RACER</h2>
+          <span id="vs-p2-badge" class="vs-badge p2-badge">500 MMR · 🌸 VIPER</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ SCREEN 2: ARENA ═══════════════ -->
+  <section id="arena" class="screen">
+    <!-- Countdown overlay -->
+    <div id="countdown" class="countdown hidden">
+      <span id="countdown-num" class="countdown-num">3</span>
+    </div>
+
+    <!-- Pause overlay -->
+    <div id="pause-overlay" class="pause-overlay hidden">
+      <span class="pause-text">PAUSED</span>
+      <span class="pause-sub">Click to resume</span>
+    </div>
+
+    <div class="arena-hud">
+      <div class="hud-item">
+        <span class="hud-label">WPM</span>
+        <span id="hud-wpm" class="hud-value">0</span>
+      </div>
+      <div class="hud-item hud-center">
+        <span class="hud-label">TIME</span>
+        <span id="hud-time" class="hud-value">00:00.0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">ACC</span>
+        <span id="hud-acc" class="hud-value">100%</span>
+      </div>
+    </div>
+
+    <div class="arena-controls-row">
+      <div id="mode-badge" class="mode-badge">RECORDING</div>
+      <button id="btn-audio-toggle" class="audio-toggle-btn" type="button" title="Toggle SFX and Tension Drone">
+        <span id="audio-toggle-icon">🔊</span> <span id="audio-toggle-text">AUDIO ON</span>
+      </button>
+    </div>
+
+    <div class="text-container">
+      <div id="text-display" class="text-display"></div>
+    </div>
+
+    <div class="progress-section">
+      <div class="progress-row">
+        <span class="progress-label player-label">YOU</span>
+        <div class="progress-track">
+          <div id="progress-player" class="progress-fill progress-player"></div>
+        </div>
+      </div>
+      <div id="ghost-progress-row" class="progress-row hidden">
+        <span class="progress-label ghost-label">GHOST</span>
+        <div class="progress-track">
+          <div id="progress-ghost" class="progress-fill progress-ghost"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hidden input to capture keystrokes -->
+    <input id="hidden-input" type="text" class="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  </section>
+
+  <!-- ═══════════════ SCREEN 3: RESULTS ═══════════════ -->
+  <section id="results" class="screen">
+    <div class="results-content">
+      <div class="results-header">
+        <h2 id="result-banner" class="result-banner">GHOST RECORDED</h2>
+        <div id="speed-tier-badge" class="speed-tier-badge">⚡ KEYBOARD ATHLETE</div>
+      </div>
+
+      <div class="stats-comparison">
+        <div class="stat-card stat-card-player">
+          <h3 class="stat-card-title player-label">YOU</h3>
+          <div class="stat-row"><span class="stat-name">WPM</span><span id="stat-p-wpm" class="stat-val">0</span></div>
+          <div class="stat-row"><span class="stat-name">Accuracy</span><span id="stat-p-acc" class="stat-val">0%</span></div>
+          <div class="stat-row"><span class="stat-name">Time</span><span id="stat-p-time" class="stat-val">0s</span></div>
+          <div class="stat-row"><span class="stat-name">Consistency</span><span id="stat-p-cons" class="stat-val">95%</span></div>
+        </div>
+        <div id="stat-card-ghost" class="stat-card stat-card-ghost hidden">
+          <h3 class="stat-card-title ghost-label">GHOST</h3>
+          <div class="stat-row"><span class="stat-name">WPM</span><span id="stat-g-wpm" class="stat-val">0</span></div>
+          <div class="stat-row"><span class="stat-name">Accuracy</span><span id="stat-g-acc" class="stat-val">0%</span></div>
+          <div class="stat-row"><span class="stat-name">Time</span><span id="stat-g-time" class="stat-val">0s</span></div>
+          <div class="stat-row stat-row-delta"><span class="stat-name">Delta</span><span id="stat-delta" class="stat-val">+0s</span></div>
+        </div>
+      </div>
+
+      <canvas id="velocity-chart" class="velocity-chart" width="600" height="200"></canvas>
+
+      <div class="results-actions">
+        <button id="btn-copy-card" class="btn btn-share">
+          <span class="btn-icon">📋</span> Copy Score Card
+        </button>
+        <button id="btn-new-ghost" class="btn btn-primary">
+          <span class="btn-icon">⌨</span> Set New Ghost
+          <kbd>Tab</kbd>
+        </button>
+        <button id="btn-race-again" class="btn btn-secondary" disabled>
+          <span class="btn-icon">🔁</span> Race Again
+          <kbd>Space</kbd>
+        </button>
+        <button id="btn-back-lobby" class="btn btn-tertiary">
+          <kbd>Esc</kbd> Lobby
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,13 +1,22 @@
-# Ignore non-game project folders
+# Ignore non-game project folders & scratch docs
 /.agents/
 /context/
 /media/
+backendplan.md
+ALL_CODE_CHANGES.md
+phase*.md
+*.tmp
 
-# Ignore Node.js dependencies
+# Ignore Node.js dependencies & env
 node_modules/
 package-lock.json
+.env
 
-# System & log files
+# System & database files
 .DS_Store
 Thumbs.db
 *.log
+*.db
+*.db-wal
+*.db-shm
+

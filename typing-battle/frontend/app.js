@@ -8,8 +8,15 @@
 
   // ─── DOM Refs ───
   const $ = id => document.getElementById(id);
-  const screens = { lobby: $('lobby'), arena: $('arena'), results: $('results') };
+  const screens = { lobby: $('lobby'), vs: $('vs-screen'), arena: $('arena'), results: $('results') };
   const el = {
+    vsScreen:        $('vs-screen'),
+    vsP1Avatar:      $('vs-p1-avatar'),
+    vsP1Name:        $('vs-p1-name'),
+    vsP1Badge:       $('vs-p1-badge'),
+    vsP2Avatar:      $('vs-p2-avatar'),
+    vsP2Name:        $('vs-p2-name'),
+    vsP2Badge:       $('vs-p2-badge'),
     btnSetGhost:     $('btn-set-ghost'),
     btnRaceGhost:    $('btn-race-ghost'),
     ghostPreview:    $('ghost-preview'),
@@ -51,11 +58,46 @@
     matchmakingModal:$('matchmaking-modal'),
     matchmakingStatus:$('matchmaking-status'),
     btnCancelMatch:  $('btn-cancel-match'),
+    profilePill:     $('profile-pill'),
+    userAvatar:      $('user-avatar'),
+    userName:        $('user-name'),
+    userMmrBadge:    $('user-mmr-badge'),
+    authModal:       $('auth-modal'),
+    googleBtnContainer: $('google-btn-container'),
+    btnDemoSignin:   $('btn-demo-signin'),
+    btnCancelAuth:   $('btn-cancel-auth'),
+    btnOpenLeaderboard: $('btn-open-leaderboard'),
+    leaderboardModal: $('leaderboard-modal'),
+    btnCloseLeaderboard: $('btn-close-leaderboard'),
+    leaderboardTbody: $('leaderboard-tbody'),
+    tabLeaderboardRankings: $('tab-leaderboard-rankings'),
+    tabLeaderboardHistory: $('tab-leaderboard-history'),
+    viewLeaderboardRankings: $('view-leaderboard-rankings'),
+    viewLeaderboardHistory: $('view-leaderboard-history'),
+    matchHistoryList: $('match-history-list'),
+    btnCustomRoom:      $('btn-custom-room'),
+    customRoomModal:    $('custom-room-modal'),
+    btnCloseCustomRoom: $('btn-close-custom-room'),
+    tabCreateRoom:      $('tab-create-room'),
+    tabJoinRoom:        $('tab-join-room'),
+    roomCreatePanel:    $('room-create-panel'),
+    roomJoinPanel:      $('room-join-panel'),
+    displayRoomCode:    $('display-room-code'),
+    btnCopyCode:        $('btn-copy-code'),
+    btnCopyLink:        $('btn-copy-link'),
+    roomWaitingStatus:  $('room-waiting-status'),
+    inputRoomCode:      $('input-room-code'),
+    btnJoinRoomSubmit:  $('btn-join-room-submit'),
+    roomJoinError:      $('room-join-error'),
   };
 
   // ─── State ───
   let quotes = [];
   let mode = null;          // 'record' | 'race' | 'online'
+  let currentUser = null;   // { id, google_id, username, avatar_url, mmr }
+  let googleClientId = '';
+  let currentRoomCode = '';
+  let isCustomMatch = false;
   let paragraph = '';
   let charIndex = 0;
   let errors = 0;
@@ -220,11 +262,162 @@
     osc.stop(t + 0.045);
   }
 
+  // ─── Tekken VS Clash Dramatic SFX (Sub-bass boom + metallic slash) ───
+  function playClashSound() {
+    if (isMuted) return;
+    ensureAudio();
+    const t = audioCtx.currentTime;
+
+    // 1. Sub-Bass 808 Impact Boom (130Hz -> 30Hz)
+    const subOsc = audioCtx.createOscillator();
+    const subGain = audioCtx.createGain();
+    subOsc.type = 'sine';
+    subOsc.frequency.setValueAtTime(130, t);
+    subOsc.frequency.exponentialRampToValueAtTime(30, t + 0.65);
+    subGain.gain.setValueAtTime(0.75, t);
+    subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+    subOsc.connect(subGain).connect(audioCtx.destination);
+    subOsc.start(t);
+    subOsc.stop(t + 0.75);
+
+    // 2. Metallic Slash Saw Chirp
+    const sawOsc = audioCtx.createOscillator();
+    const sawGain = audioCtx.createGain();
+    sawOsc.type = 'sawtooth';
+    sawOsc.frequency.setValueAtTime(700, t);
+    sawOsc.frequency.exponentialRampToValueAtTime(70, t + 0.35);
+    sawGain.gain.setValueAtTime(0.35, t);
+    sawGain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+    sawOsc.connect(sawGain).connect(audioCtx.destination);
+    sawOsc.start(t);
+    sawOsc.stop(t + 0.4);
+  }
+
+  function getSpeedTier(wpm) {
+    if (wpm >= 120) return '⚡ Phantom';
+    if (wpm >= 95)  return '🔥 Apex';
+    if (wpm >= 75)  return '🌸 Viper';
+    if (wpm >= 55)  return '🏎️ Striker';
+    if (wpm >= 35)  return '⚡ Cruiser';
+    return '🌱 Novice';
+  }
+
+  function showVsClashScreen(rival, onComplete) {
+    const p1 = currentUser || { username: 'YOU', avatar_url: 'miku.gif', mmr: 500, best_wpm: 60 };
+    const p2 = rival || { username: 'RIVAL RACER', avatar_url: 'miku.gif', mmr: 500, best_wpm: 60 };
+
+    el.vsP1Avatar.src = p1.avatar_url || 'miku.gif';
+    el.vsP1Name.textContent = (p1.username || 'YOU').toUpperCase();
+    el.vsP1Badge.textContent = `${p1.mmr || 500} MMR · ${getSpeedTier(p1.best_wpm || 60)}`;
+
+    el.vsP2Avatar.src = p2.avatar_url || 'miku.gif';
+    el.vsP2Name.textContent = (p2.username || 'RIVAL RACER').toUpperCase();
+    el.vsP2Badge.textContent = `${p2.mmr || 500} MMR · ${getSpeedTier(p2.best_wpm || 60)}`;
+
+    switchScreen('vs');
+    playClashSound();
+
+    setTimeout(() => {
+      onComplete();
+    }, 1800);
+  }
+
+  // ─── Procedural Lobby 8-bit Synth Melody Loop (PoPiPo Style) ───
+  let bgmInterval = null;
+  let bgmNoteIndex = 0;
+  const bgmMelody = [
+    523.25, 659.25, 783.99, 659.25, 523.25, 659.25, 783.99, 1046.50,
+    880.00, 783.99, 659.25, 523.25, 587.33, 659.25, 587.33, 523.25
+  ];
+
+  function startLobbyBGM() {
+    if (isMuted || bgmInterval) return;
+    ensureAudio();
+    bgmNoteIndex = 0;
+    bgmInterval = setInterval(() => {
+      if (isMuted || !screens.lobby.classList.contains('active')) {
+        stopLobbyBGM();
+        return;
+      }
+      try {
+        const t = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = bgmMelody[bgmNoteIndex % bgmMelody.length];
+        gain.gain.setValueAtTime(0.04, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.13);
+        bgmNoteIndex++;
+      } catch (e) {}
+    }, 180);
+  }
+
+  function stopLobbyBGM() {
+    if (bgmInterval) {
+      clearInterval(bgmInterval);
+      bgmInterval = null;
+    }
+  }
+
+  // ─── Victory & Defeat Audio Fanfares ───
+  function playVictoryFanfare() {
+    if (isMuted) return;
+    ensureAudio();
+    const t = audioCtx.currentTime;
+    const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+    notes.forEach((freq, idx) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.18, t + idx * 0.09);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.09 + 0.35);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t + idx * 0.09);
+      osc.stop(t + idx * 0.09 + 0.36);
+    });
+
+    // Sub-bass celebration boom
+    const subOsc = audioCtx.createOscillator();
+    const subGain = audioCtx.createGain();
+    subOsc.type = 'sine';
+    subOsc.frequency.setValueAtTime(110, t + 0.36);
+    subOsc.frequency.exponentialRampToValueAtTime(45, t + 0.9);
+    subGain.gain.setValueAtTime(0.6, t + 0.36);
+    subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+    subOsc.connect(subGain).connect(audioCtx.destination);
+    subOsc.start(t + 0.36);
+    subOsc.stop(t + 0.95);
+  }
+
+  function playDefeatChime() {
+    if (isMuted) return;
+    ensureAudio();
+    const t = audioCtx.currentTime;
+    const notes = [440.00, 392.00, 349.23, 261.63];
+    notes.forEach((freq, idx) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.2, t + idx * 0.16);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.16 + 0.35);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t + idx * 0.16);
+      osc.stop(t + idx * 0.16 + 0.36);
+    });
+  }
+
   function toggleAudio() {
     isMuted = !isMuted;
     try {
       localStorage.setItem('typeghost_muted', isMuted ? 'true' : 'false');
     } catch (e) {}
+    if (isMuted) stopLobbyBGM();
+    else if (screens.lobby.classList.contains('active')) startLobbyBGM();
     updateAudioUI();
   }
 
@@ -250,8 +443,10 @@
     if (bgVideo) {
       if (name === 'lobby') {
         bgVideo.play().catch(() => {});
+        startLobbyBGM();
       } else {
         bgVideo.pause();
+        stopLobbyBGM();
       }
     }
   }
@@ -296,13 +491,24 @@
 
   function renderText() {
     el.textDisplay.innerHTML = '';
+    let currentWord = document.createElement('span');
+    currentWord.className = 'word';
+    el.textDisplay.appendChild(currentWord);
+
     for (let i = 0; i < paragraph.length; i++) {
       const span = document.createElement('span');
       const isSpace = paragraph[i] === ' ';
       span.className = 'char' + (isSpace ? ' space' : '') + (i === 0 ? ' current' : ' untyped');
       span.textContent = paragraph[i];
       span.dataset.idx = i;
-      el.textDisplay.appendChild(span);
+      currentWord.appendChild(span);
+
+      // Start a new word container after every space (unless at end of text)
+      if (isSpace && i < paragraph.length - 1) {
+        currentWord = document.createElement('span');
+        currentWord.className = 'word';
+        el.textDisplay.appendChild(currentWord);
+      }
     }
   }
 
@@ -390,11 +596,43 @@
       chars[charIndex].className = 'char correct' + (isCharSpace ? ' space' : '');
       streak++;
       playThock(currentWpm);
+
+      const ms = performance.now() - startTime - pauseOffset;
+      recordTimeline.push({ charIndex, ms, correct: true });
+      wpmHistory.push({ ms, wpm: currentWpm });
+
+      // Live Multiplayer Broadcast (<30ms)
+      if (mode === 'online' && ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({
+          type: 'PROGRESS',
+          charIndex: charIndex + 1,
+          wpm: currentWpm
+        }));
+      }
+
+      charIndex++;
+
+      if (charIndex < paragraph.length) {
+        const isNextSpace = paragraph[charIndex] === ' ';
+        chars[charIndex].className = 'char current' + (isNextSpace ? ' space' : '');
+      }
+
+      // Finish reached? Trigger Minesweeper explosion!
+      if (charIndex >= paragraph.length) {
+        updateHUD();
+        finishRace();
+        return;
+      }
     } else {
-      chars[charIndex].className = 'char wrong' + (isCharSpace ? ' space' : '');
       errors++;
       streak = 0;
       playError();
+
+      // Block advance: flash red shake on current char without incrementing charIndex
+      chars[charIndex].className = 'char current' + (isCharSpace ? ' space' : '');
+      chars[charIndex].classList.remove('wrong');
+      void chars[charIndex].offsetWidth; // force reflow so repeated typos re-trigger shake
+      chars[charIndex].classList.add('wrong');
     }
 
     // Streak glow
@@ -404,32 +642,7 @@
       el.textDisplay.classList.remove('streak');
     }
 
-    const ms = performance.now() - startTime - pauseOffset;
-    recordTimeline.push({ charIndex, ms, correct });
-    wpmHistory.push({ ms, wpm: currentWpm });
-
-    // Live Multiplayer Broadcast (<30ms)
-    if (mode === 'online' && ws && ws.readyState === 1) {
-      ws.send(JSON.stringify({
-        type: 'PROGRESS',
-        charIndex: charIndex + 1,
-        wpm: currentWpm
-      }));
-    }
-
-    charIndex++;
-
-    if (charIndex < paragraph.length) {
-      const isNextSpace = paragraph[charIndex] === ' ';
-      chars[charIndex].className = 'char current' + (isNextSpace ? ' space' : '');
-    }
-
     updateHUD();
-
-    // Finish reached? Trigger Minesweeper explosion!
-    if (charIndex >= paragraph.length) {
-      finishRace();
-    }
   }
 
   // ══════════════════════════════════════════════════════
@@ -499,10 +712,242 @@
   }
 
   // ══════════════════════════════════════════════════════
-  // Live 1v1 Multiplayer Engine (WebSockets)
+  // Authentication & Profile State (Phase 2)
   // ══════════════════════════════════════════════════════
-  function startMatchmaking() {
+  function updateProfileUI() {
+    if (currentUser) {
+      el.userName.textContent = currentUser.username || 'Racer';
+      el.userAvatar.src = currentUser.avatar_url || 'miku.gif';
+      el.userMmrBadge.textContent = `${currentUser.mmr || 500} MMR · 🌸 Viper`;
+      el.profilePill.classList.add('logged-in');
+    } else {
+      el.userName.textContent = 'Guest';
+      el.userAvatar.src = 'miku.gif';
+      el.userMmrBadge.textContent = '500 MMR (Unranked)';
+      el.profilePill.classList.remove('logged-in');
+    }
+  }
+
+  async function handleGoogleResponse(res) {
+    try {
+      const response = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: res.credential })
+      });
+      const data = await response.json();
+      if (data.success && data.user) {
+        currentUser = data.user;
+        localStorage.setItem('syntax_user', JSON.stringify(currentUser));
+        updateProfileUI();
+        el.authModal.classList.add('hidden');
+        startMatchmaking();
+      }
+    } catch (e) {
+      alert('Google authentication failed. Try 1-Click Fast Sign-In.');
+    }
+  }
+
+  async function handleDemoSignin() {
+    try {
+      const response = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mockUser: {
+            id: 'faheem_dev',
+            username: 'Faheem (Ranked)',
+            avatar_url: 'miku.gif'
+          }
+        })
+      });
+      const data = await response.json();
+      if (data.success && data.user) {
+        currentUser = data.user;
+        localStorage.setItem('syntax_user', JSON.stringify(currentUser));
+        updateProfileUI();
+        el.authModal.classList.add('hidden');
+        startMatchmaking();
+      }
+    } catch (e) {
+      console.error('Demo auth error:', e);
+    }
+  }
+
+  function handleRankedDuelClick() {
+    if (currentUser) {
+      startMatchmaking();
+    } else {
+      el.authModal.classList.remove('hidden');
+    }
+  }
+
+  function handleProfilePillClick() {
+    if (currentUser) {
+      if (confirm(`Logged in as ${currentUser.username} (${currentUser.mmr} MMR).\n\nDo you want to log out?`)) {
+        currentUser = null;
+        localStorage.removeItem('syntax_user');
+        updateProfileUI();
+      }
+    } else {
+      el.authModal.classList.remove('hidden');
+    }
+  }
+
+  function openLeaderboard() {
+    el.leaderboardModal.classList.remove('hidden');
+    switchLeaderboardTab('rankings');
+  }
+
+  function switchLeaderboardTab(tab) {
+    if (tab === 'rankings') {
+      el.tabLeaderboardRankings.classList.add('active');
+      el.tabLeaderboardHistory.classList.remove('active');
+      el.viewLeaderboardRankings.classList.remove('hidden');
+      el.viewLeaderboardHistory.classList.add('hidden');
+      loadLeaderboardRankings();
+    } else {
+      el.tabLeaderboardRankings.classList.remove('active');
+      el.tabLeaderboardHistory.classList.add('active');
+      el.viewLeaderboardRankings.classList.add('hidden');
+      el.viewLeaderboardHistory.classList.remove('hidden');
+      loadMatchHistory();
+    }
+  }
+
+  async function loadLeaderboardRankings() {
+    el.leaderboardTbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--text-muted);">Loading rankings...</td></tr>`;
+    try {
+      const res = await fetch('/api/leaderboard');
+      const data = await res.json();
+
+      if (!data || data.length === 0) {
+        el.leaderboardTbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--text-dim);">No ranked players yet. Be the first to duel!</td></tr>`;
+        return;
+      }
+
+      el.leaderboardTbody.innerHTML = data.map((player, idx) => {
+        const rankNum = idx + 1;
+        const rankBadgeClass = rankNum === 1 ? 'rank-badge-1' : (rankNum === 2 ? 'rank-badge-2' : (rankNum === 3 ? 'rank-badge-3' : ''));
+        const tier = getSpeedTier(player.best_wpm || 0);
+        const winRate = player.matches_played > 0 
+          ? Math.round((player.matches_won / player.matches_played) * 100) + '%' 
+          : '—';
+        const isActive = currentUser && currentUser.id === player.id ? 'active-user' : '';
+
+        return `
+          <tr class="${isActive}">
+            <td class="${rankBadgeClass}">#${rankNum}</td>
+            <td>
+              <div class="racer-cell">
+                <img class="racer-avatar" src="${player.avatar_url || 'miku.gif'}" alt="Avatar">
+                <span>${player.username}</span>
+              </div>
+            </td>
+            <td style="color: #FFB300; font-weight: 700;">${player.mmr || 500}</td>
+            <td>${tier}</td>
+            <td>${player.best_wpm || 0} WPM</td>
+            <td>${winRate}</td>
+          </tr>
+        `;
+      }).join('');
+    } catch (e) {
+      el.leaderboardTbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--accent-error);">Failed to load rankings.</td></tr>`;
+    }
+  }
+
+  async function loadMatchHistory() {
+    el.matchHistoryList.innerHTML = `<div style="text-align:center; padding: 24px; color: var(--text-muted); font-family: var(--font-mono); font-size: 0.82rem;">Loading battle history...</div>`;
+    try {
+      const url = currentUser ? `/api/matches/recent?userId=${currentUser.id}` : `/api/matches/recent`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!data || data.length === 0) {
+        el.matchHistoryList.innerHTML = `<div style="text-align:center; padding: 24px; color: var(--text-dim); font-family: var(--font-mono); font-size: 0.82rem;">No battle logs recorded yet. Play a match to create history!</div>`;
+        return;
+      }
+
+      el.matchHistoryList.innerHTML = data.map(m => {
+        const isP1 = currentUser && currentUser.id === m.p1_id;
+        const isWinner = currentUser ? (m.winner_id === currentUser.id) : (m.winner_id === m.p1_id);
+        const matchTypeClass = m.is_ranked ? 'ranked' : 'custom';
+        const matchTypeLabel = m.is_ranked ? '⚔️ Ranked' : '🎮 Custom';
+        const outcomeClass = isWinner ? 'win' : 'lose';
+        const outcomeText = isWinner ? 'VICTORY' : 'DEFEAT';
+        const mmrDeltaText = m.is_ranked 
+          ? (isP1 ? (m.p1_mmr_delta >= 0 ? `+${m.p1_mmr_delta}` : `${m.p1_mmr_delta}`) : (m.p2_mmr_delta >= 0 ? `+${m.p2_mmr_delta}` : `${m.p2_mmr_delta}`)) + ' MMR'
+          : '0 MMR';
+
+        const p1Name = m.p1_name || 'Racer 1';
+        const p2Name = m.p2_name || 'Racer 2';
+        const p1Avatar = m.p1_avatar || 'miku.gif';
+        const p2Avatar = m.p2_avatar || 'miku.gif';
+        const dateStr = (m.played_at || '').substring(11, 16) || 'Just now';
+
+        return `
+          <div class="match-history-card">
+            <span class="match-type-badge ${matchTypeClass}">${matchTypeLabel}</span>
+
+            <div class="match-fighters-row">
+              <div class="match-player-side">
+                <img class="match-player-avatar" src="${p1Avatar}" alt="P1">
+                <div>
+                  <div class="match-player-name">${p1Name}</div>
+                  <div class="match-player-stats">${m.p1_wpm} WPM · ${m.p1_acc}%</div>
+                </div>
+              </div>
+
+              <span class="match-vs-badge">VS</span>
+
+              <div class="match-player-side">
+                <img class="match-player-avatar" src="${p2Avatar}" alt="P2">
+                <div>
+                  <div class="match-player-name">${p2Name}</div>
+                  <div class="match-player-stats">${m.p2_wpm} WPM · ${m.p2_acc}%</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span class="match-outcome-badge ${outcomeClass}">${outcomeText} (${mmrDeltaText})</span>
+              <span class="match-date-stamp">${dateStr}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    } catch (e) {
+      el.matchHistoryList.innerHTML = `<div style="text-align:center; padding: 24px; color: var(--accent-error); font-family: var(--font-mono); font-size: 0.82rem;">Failed to load match history.</div>`;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════
+  // Custom Unranked Room Handlers (Phase 5)
+  // ══════════════════════════════════════════════════════
+  function openCustomRoomModal() {
+    el.customRoomModal.classList.remove('hidden');
+    switchRoomTab('create');
+    createCustomRoom();
+  }
+
+  function switchRoomTab(tab) {
+    if (tab === 'create') {
+      el.tabCreateRoom.classList.add('active');
+      el.tabJoinRoom.classList.remove('active');
+      el.roomCreatePanel.classList.remove('hidden');
+      el.roomJoinPanel.classList.add('hidden');
+    } else {
+      el.tabCreateRoom.classList.remove('active');
+      el.tabJoinRoom.classList.add('active');
+      el.roomCreatePanel.classList.add('hidden');
+      el.roomJoinPanel.classList.remove('hidden');
+      el.inputRoomCode.focus();
+    }
+  }
+
+  function createCustomRoom() {
     isOnlineMatch = true;
+    isCustomMatch = true;
     onlineOpponentStats = null;
     onlineOpponentFinished = false;
     opponentWpmHistory = [];
@@ -511,6 +956,94 @@
     const host = window.location.host || 'localhost:3000';
     
     try {
+      if (ws) ws.close();
+      ws = new WebSocket(`${protocol}//${host}`);
+    } catch (e) {
+      alert('Could not connect to relay server.');
+      return;
+    }
+
+    currentRoomCode = 'RUSH-' + Math.floor(10 + Math.random() * 90);
+    el.displayRoomCode.textContent = currentRoomCode;
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        type: 'CREATE_ROOM',
+        roomCode: currentRoomCode,
+        user: currentUser || { id: 'guest_' + Math.random().toString(36).slice(2, 8), username: 'Host (Guest)', avatar_url: 'miku.gif' }
+      }));
+    };
+
+    wireWebSocketEvents();
+  }
+
+  function joinCustomRoom(code) {
+    const cleanCode = (code || el.inputRoomCode.value || '').trim().toUpperCase();
+    if (!cleanCode) {
+      el.roomJoinError.textContent = 'Please enter a valid room code (e.g. RUSH-42)';
+      el.roomJoinError.classList.remove('hidden');
+      return;
+    }
+
+    el.roomJoinError.classList.add('hidden');
+    isOnlineMatch = true;
+    isCustomMatch = true;
+    onlineOpponentStats = null;
+    onlineOpponentFinished = false;
+    opponentWpmHistory = [];
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host || 'localhost:3000';
+
+    try {
+      if (ws) ws.close();
+      ws = new WebSocket(`${protocol}//${host}`);
+    } catch (e) {
+      alert('Could not connect to relay server.');
+      return;
+    }
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        type: 'JOIN_ROOM',
+        roomCode: cleanCode,
+        user: currentUser || { id: 'guest_' + Math.random().toString(36).slice(2, 8), username: 'Friend (Guest)', avatar_url: 'miku.gif' }
+      }));
+    };
+
+    wireWebSocketEvents();
+  }
+
+  function copyRoomCode() {
+    navigator.clipboard.writeText(currentRoomCode).then(() => {
+      el.btnCopyCode.innerHTML = `<span class="btn-icon">✓</span> Copied!`;
+      setTimeout(() => el.btnCopyCode.innerHTML = `<span class="btn-icon">📋</span> Copy Code`, 2000);
+    });
+  }
+
+  function copyRoomLink() {
+    const url = `${window.location.origin}${window.location.pathname}?room=${currentRoomCode}`;
+    navigator.clipboard.writeText(url).then(() => {
+      el.btnCopyLink.innerHTML = `<span class="btn-icon">✓</span> Copied Link!`;
+      setTimeout(() => el.btnCopyLink.innerHTML = `<span class="btn-icon">🔗</span> Copy Link`, 2000);
+    });
+  }
+
+  // ══════════════════════════════════════════════════════
+  // Live 1v1 Multiplayer Engine (WebSockets)
+  // ══════════════════════════════════════════════════════
+  function startMatchmaking() {
+    isOnlineMatch = true;
+    isCustomMatch = false;
+    onlineOpponentStats = null;
+    onlineOpponentFinished = false;
+    opponentWpmHistory = [];
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host || 'localhost:3000';
+    
+    try {
+      if (ws) ws.close();
       ws = new WebSocket(`${protocol}//${host}`);
     } catch (e) {
       alert('Could not connect to multiplayer relay server. Make sure server.js is running!');
@@ -522,19 +1055,35 @@
 
     ws.onopen = () => {
       el.matchmakingStatus.textContent = 'Searching for live rival...';
-      ws.send(JSON.stringify({ type: 'FIND_MATCH' }));
+      ws.send(JSON.stringify({ type: 'FIND_MATCH', user: currentUser }));
     };
 
+    wireWebSocketEvents();
+  }
+
+  function wireWebSocketEvents() {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
 
-        if (data.type === 'WAITING') {
-          el.matchmakingStatus.textContent = 'Waiting for an opponent to join...';
+        if (data.type === 'ROOM_CREATED') {
+          currentRoomCode = data.roomCode;
+          el.displayRoomCode.textContent = data.roomCode;
+          el.roomWaitingStatus.textContent = 'Waiting for friend to enter code...';
+        } else if (data.type === 'ROOM_ERROR') {
+          el.roomJoinError.textContent = data.message;
+          el.roomJoinError.classList.remove('hidden');
+        } else if (data.type === 'WAITING') {
+          el.matchmakingStatus.textContent = data.message || 'Waiting for an opponent to join...';
         } else if (data.type === 'MATCH_START') {
+          isCustomMatch = (data.isRanked === false);
           el.matchmakingModal.classList.add('hidden');
+          el.customRoomModal.classList.add('hidden');
           paragraph = data.paragraph;
-          startOnlineRace();
+          const rival = data.opponentUser || { username: 'RIVAL RACER', avatar_url: 'miku.gif', mmr: 500, best_wpm: 60 };
+          showVsClashScreen(rival, () => {
+            startOnlineRace();
+          });
         } else if (data.type === 'OPPONENT_PROGRESS') {
           el.progressGhost.style.width = ((data.charIndex / paragraph.length) * 100) + '%';
           const chars = getChars();
@@ -547,11 +1096,47 @@
           onlineOpponentFinished = true;
           onlineOpponentStats = data.stats;
           el.progressGhost.style.width = '100%';
+        } else if (data.type === 'MATCH_RESULT') {
+          if (data.isRanked && data.user) {
+            currentUser = data.user;
+            localStorage.setItem('syntax_user', JSON.stringify(currentUser));
+            updateProfileUI();
+          }
+          if (data.won) playVictoryFanfare();
+          else playDefeatChime();
+
+          if (screens.results.classList.contains('active')) {
+            if (!data.isRanked) {
+              if (data.won) {
+                el.resultBanner.textContent = 'VICTORY — YOU WON THE CUSTOM DUEL! (0 MMR)';
+                el.resultBanner.className = 'result-banner win';
+              } else {
+                el.resultBanner.textContent = 'DEFEAT — FRIEND WAS FASTER! (0 MMR)';
+                el.resultBanner.className = 'result-banner lose';
+              }
+            } else {
+              const bonusText = data.bonuses && data.bonuses.length ? ` [${data.bonuses.join(' ')}]` : '';
+              if (data.won) {
+                el.resultBanner.textContent = `VICTORY! (+${data.mmrDelta} MMR)${bonusText}`;
+                el.resultBanner.className = 'result-banner win';
+              } else {
+                el.resultBanner.textContent = `DEFEAT (${data.mmrDelta} MMR)`;
+                el.resultBanner.className = 'result-banner lose';
+              }
+            }
+          }
         } else if (data.type === 'OPPONENT_DISCONNECTED') {
-          if (screens.arena.classList.contains('active')) {
+          if (screens.arena.classList.contains('active') || screens.results.classList.contains('active')) {
             onlineOpponentFinished = true;
             onlineOpponentStats = { wpm: 0, accuracy: 0, timeMs: 999999 };
-            el.resultBanner.textContent = 'RIVAL DISCONNECTED — FORFEIT WIN!';
+            if (data.matchResult && data.matchResult.user && data.matchResult.isRanked) {
+              currentUser = data.matchResult.user;
+              localStorage.setItem('syntax_user', JSON.stringify(currentUser));
+              updateProfileUI();
+            }
+            el.resultBanner.textContent = data.matchResult?.isRanked
+              ? 'RIVAL FORFEIT — VICTORY! (+25 MMR)'
+              : 'FRIEND LEFT — DUEL ENDED (0 MMR)';
             el.resultBanner.className = 'result-banner win';
           }
         }
@@ -562,6 +1147,8 @@
 
     ws.onerror = () => {
       el.matchmakingStatus.textContent = 'Multiplayer server offline. Run "npm start"!';
+      el.roomJoinError.textContent = 'Multiplayer server offline.';
+      el.roomJoinError.classList.remove('hidden');
     };
 
     ws.onclose = () => {
@@ -573,11 +1160,16 @@
 
   function cancelMatchmaking() {
     if (ws) {
-      if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'CANCEL_QUEUE' }));
+      if (ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'CANCEL_QUEUE' }));
+        ws.send(JSON.stringify({ type: 'LEAVE_ROOM' }));
+      }
       ws.close();
     }
     el.matchmakingModal.classList.add('hidden');
+    el.customRoomModal.classList.add('hidden');
     isOnlineMatch = false;
+    isCustomMatch = false;
   }
 
   function startOnlineRace() {
@@ -607,14 +1199,13 @@
 
     renderText();
 
-    startCountdown(() => {
-      startTime = performance.now();
-      timerRAF = requestAnimationFrame(timerTick);
+    // Immediate start: Tekken VS Clash screen already served as the cinematic countdown!
+    startTime = performance.now();
+    timerRAF = requestAnimationFrame(timerTick);
 
-      el.hiddenInput.value = '';
-      el.hiddenInput.focus();
-      el.hiddenInput.addEventListener('keydown', handleKeystroke);
-    });
+    el.hiddenInput.value = '';
+    el.hiddenInput.focus();
+    el.hiddenInput.addEventListener('keydown', handleKeystroke);
   }
 
   // ══════════════════════════════════════════════════════
@@ -784,17 +1375,21 @@
       if (playerStats.accuracy === 100 && playerStats.timeMs < ghostStats.timeMs) {
         el.resultBanner.textContent = 'PERFECT RUN. THE GHOST IS DEAD.';
         el.resultBanner.className = 'result-banner win';
+        playVictoryFanfare();
       } else if (playerStats.timeMs <= ghostStats.timeMs) {
         el.resultBanner.textContent = 'YOU BEAT THE GHOST';
         el.resultBanner.className = 'result-banner win';
+        playVictoryFanfare();
       } else {
         el.resultBanner.textContent = 'THE GHOST GOT YOU';
         el.resultBanner.className = 'result-banner lose';
+        playDefeatChime();
       }
     } else {
       el.statCardGhost.classList.add('hidden');
       el.resultBanner.textContent = playerStats.accuracy === 100 ? 'PERFECT RUN. GHOST RECORDED.' : 'GHOST RECORDED';
       el.resultBanner.className = 'result-banner recorded';
+      if (playerStats.accuracy === 100) playVictoryFanfare();
     }
 
     updateLobbyState();
@@ -964,8 +1559,31 @@
   // ══════════════════════════════════════════════════════
   el.btnSetGhost.addEventListener('click', () => startRace('record'));
   el.btnRaceGhost.addEventListener('click', () => { if (!el.btnRaceGhost.disabled) startRace('race'); });
-  el.btnOnlineDuel.addEventListener('click', startMatchmaking);
+  el.btnOnlineDuel.addEventListener('click', handleRankedDuelClick);
+  el.btnCustomRoom.addEventListener('click', openCustomRoomModal);
+  el.btnCloseCustomRoom.addEventListener('click', cancelMatchmaking);
+  el.tabCreateRoom.addEventListener('click', () => switchRoomTab('create'));
+  el.tabJoinRoom.addEventListener('click', () => switchRoomTab('join'));
+  el.btnCopyCode.addEventListener('click', copyRoomCode);
+  el.btnCopyLink.addEventListener('click', copyRoomLink);
+  el.btnJoinRoomSubmit.addEventListener('click', () => joinCustomRoom());
+  el.inputRoomCode.addEventListener('keydown', e => { if (e.key === 'Enter') joinCustomRoom(); });
   el.btnCancelMatch.addEventListener('click', cancelMatchmaking);
+  el.btnDemoSignin.addEventListener('click', handleDemoSignin);
+  el.btnOpenLeaderboard.addEventListener('click', openLeaderboard);
+  el.btnCloseLeaderboard.addEventListener('click', () => el.leaderboardModal.classList.add('hidden'));
+  el.tabLeaderboardRankings.addEventListener('click', () => switchLeaderboardTab('rankings'));
+  el.tabLeaderboardHistory.addEventListener('click', () => switchLeaderboardTab('history'));
+  el.leaderboardModal.addEventListener('click', (e) => {
+    if (e.target === el.leaderboardModal) el.leaderboardModal.classList.add('hidden');
+  });
+  el.customRoomModal.addEventListener('click', (e) => {
+    if (e.target === el.customRoomModal) cancelMatchmaking();
+  });
+  el.authModal.addEventListener('click', (e) => {
+    if (e.target === el.authModal) el.authModal.classList.add('hidden');
+  });
+  el.profilePill.addEventListener('click', handleProfilePillClick);
   el.btnNewGhost.addEventListener('click', () => startRace('record'));
   el.btnRaceAgain.addEventListener('click', () => { if (!el.btnRaceAgain.disabled) startRace('race'); });
   el.btnBackLobby.addEventListener('click', () => { updateLobbyState(); switchScreen('lobby'); });
@@ -990,7 +1608,18 @@
     }
     if ((e.key === 'm' || e.key === 'M') && screens.lobby.classList.contains('active')) {
       e.preventDefault();
-      startMatchmaking();
+      handleRankedDuelClick();
+    }
+    if ((e.key === 'c' || e.key === 'C') && screens.lobby.classList.contains('active')) {
+      e.preventDefault();
+      openCustomRoomModal();
+    }
+    if ((e.key === 'v' || e.key === 'V') && screens.lobby.classList.contains('active')) {
+      e.preventDefault();
+      const mockRival = { username: 'CYBER VIPER', avatar_url: 'miku.gif', mmr: 610, best_wpm: 88 };
+      showVsClashScreen(mockRival, () => {
+        switchScreen('lobby');
+      });
     }
     if (e.key === 'Tab' && screens.results.classList.contains('active')) {
       e.preventDefault();
@@ -998,6 +1627,9 @@
     }
     if (e.key === 'Escape') {
       e.preventDefault();
+      el.authModal.classList.add('hidden');
+      el.leaderboardModal.classList.add('hidden');
+      el.customRoomModal.classList.add('hidden');
       cancelMatchmaking();
       updateLobbyState();
       switchScreen('lobby');
@@ -1014,6 +1646,29 @@
     updateAudioUI();
 
     try {
+      const savedUser = localStorage.getItem('syntax_user');
+      if (savedUser) currentUser = JSON.parse(savedUser);
+    } catch (e) {}
+    updateProfileUI();
+
+    try {
+      const authConfigRes = await fetch('/api/auth/config');
+      const authConfig = await authConfigRes.json();
+      googleClientId = authConfig.googleClientId;
+
+      if (googleClientId && window.google && window.google.accounts) {
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: handleGoogleResponse
+        });
+        window.google.accounts.id.renderButton(
+          el.googleBtnContainer,
+          { theme: 'filled_black', size: 'large', shape: 'pill', width: 240 }
+        );
+      }
+    } catch (e) {}
+
+    try {
       const res = await fetch('quotes.json');
       quotes = await res.json();
     } catch (e) {
@@ -1026,6 +1681,16 @@
       ];
     }
     updateLobbyState();
+
+    // Auto-join if ?room=CODE in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomParam = urlParams.get('room');
+    if (roomParam) {
+      el.customRoomModal.classList.remove('hidden');
+      switchRoomTab('join');
+      el.inputRoomCode.value = roomParam.toUpperCase();
+      joinCustomRoom(roomParam);
+    }
   }
 
   init();
