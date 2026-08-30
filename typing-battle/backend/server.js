@@ -32,6 +32,9 @@ try {
 }
 
 function getRandomQuote() {
+  try {
+    quotes = JSON.parse(fs.readFileSync(path.join(__dirname, '../frontend/quotes.json'), 'utf8'));
+  } catch (e) {}
   return quotes[Math.floor(Math.random() * quotes.length)].text;
 }
 
