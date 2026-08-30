@@ -213,7 +213,9 @@ wss.on('connection', (ws) => {
       // ─── 1. Custom Unranked Rooms (Phase 5) ───
       if (msg.type === 'CREATE_ROOM') {
         const code = (msg.roomCode || 'RUSH-' + Math.floor(10 + Math.random() * 90)).toUpperCase();
-        const hostUser = ws.user; // Use server-verified identity only
+        const isGuest = !ws.user || ws.user.isGuest || (ws.user.id && ws.user.id.startsWith('guest_'));
+        const hostUser = isGuest ? { ...ws.user, username: 'Host (Guest)', isGuest: true } : ws.user;
+        ws.user = hostUser;
         ws.roomCode = code;
 
         customRooms.set(code, {
@@ -241,18 +243,22 @@ wss.on('connection', (ws) => {
           return;
         }
 
-        const guestUser = ws.user; // Use server-verified identity only
+        const isGuest = !ws.user || ws.user.isGuest || (ws.user.id && ws.user.id.startsWith('guest_'));
+        const guestUser = isGuest ? { ...ws.user, username: 'Friend (Guest)', isGuest: true } : ws.user;
+        ws.user = guestUser;
         ws.roomCode = code;
         room.guestWs = ws;
         room.guestUser = guestUser;
 
         const matchId = 'custom_' + Math.random().toString(36).substring(2, 10);
+        const now = Date.now();
         const session = {
           id: matchId,
           p1: room.hostWs,
           p2: room.guestWs,
           paragraph: room.paragraph,
-          startTime: Date.now(),
+          matchStartSentAt: now,
+          startTime: null, // Anchored when RACE_READY is received
           p1Stats: null,
           p2Stats: null,
           isResolved: false,
@@ -317,13 +323,15 @@ wss.on('connection', (ws) => {
 
           const matchId = 'm_' + Math.random().toString(36).substring(2, 10);
           const paragraph = getRandomQuote();
+          const matchNow = Date.now();
 
           const session = {
             id: matchId,
             p1,
             p2,
             paragraph,
-            startTime: Date.now(),
+            matchStartSentAt: matchNow,
+            startTime: null, // Anchored when RACE_READY is received
             p1Stats: null,
             p2Stats: null,
             isResolved: false,
@@ -346,7 +354,15 @@ wss.on('connection', (ws) => {
         rankedQueue = rankedQueue.filter(p => p.ws !== ws);
       }
 
-      // ─── 4. Keystroke Progress Relay (<30ms) ───
+      // ─── 4. Race Ready Sync (Starts Race Timing Baseline) ───
+      if (msg.type === 'RACE_READY') {
+        if (ws.matchSession && !ws.matchSession.startTime) {
+          ws.matchSession.startTime = Date.now();
+        }
+        return;
+      }
+
+      // ─── 5. Keystroke Progress Relay (<30ms) ───
       if (msg.type === 'PROGRESS') {
         if (ws.opponent && ws.opponent.readyState === 1) {
           ws.opponent.send(JSON.stringify({
@@ -357,23 +373,24 @@ wss.on('connection', (ws) => {
         }
       }
 
-      // ─── 5. Race Finish & Resolution (Server-Authoritative Validation) ───
+      // ─── 6. Race Finish & Resolution (Server-Authoritative Validation) ───
       if (msg.type === 'FINISH') {
         const session = ws.matchSession;
         if (!session) return;
 
-        // Server-Side Timestamp & WPM Clamping to prevent cheat injection
+        // Accurate Server-Side Timing: anchored to RACE_READY or fallback with 1800ms clash screen offset
         const now = Date.now();
-        const serverElapsedMs = Math.max(500, now - (session.startTime || now));
+        const effectiveStartTime = session.startTime || ((session.matchStartSentAt || now) + 1800);
+        const serverElapsedMs = Math.max(300, now - effectiveStartTime);
         const quoteLen = session.paragraph ? session.paragraph.length : 100;
         const actualServerWpm = Math.round(((quoteLen / 5) / (serverElapsedMs / 60000)));
-        const maxAllowedWpm = Math.min(240, actualServerWpm + 15);
+        const maxAllowedWpm = Math.min(240, actualServerWpm + 25);
 
         let claimedWpm = parseInt(msg.stats?.wpm) || 0;
         let claimedAcc = Math.min(100, Math.max(0, parseInt(msg.stats?.accuracy) || 0));
         let claimedTimeMs = parseInt(msg.stats?.timeMs) || serverElapsedMs;
 
-        if (claimedWpm > maxAllowedWpm || claimedTimeMs < (serverElapsedMs - 2000) || serverElapsedMs < 2000) {
+        if (claimedWpm > maxAllowedWpm || claimedTimeMs < (serverElapsedMs - 2500) || serverElapsedMs < 1000) {
           console.warn(`[Anti-Cheat] Sanitized stats for user ${ws.user?.id}: claimed ${claimedWpm} WPM in ${claimedTimeMs}ms (server elapsed: ${serverElapsedMs}ms, clamped to ${Math.min(claimedWpm, maxAllowedWpm)} WPM)`);
           claimedWpm = Math.min(claimedWpm, maxAllowedWpm);
           claimedTimeMs = serverElapsedMs;
