@@ -1669,15 +1669,15 @@
     } catch (e) {}
 
     try {
-      const res = await fetch('quotes.json');
+      const res = await fetch('quotes.json?v=' + Date.now());
       quotes = await res.json();
     } catch (e) {
       quotes = [
-        { text: "The best code is no code at all Every new line of code you bring into the world is code that has to be debugged", source: "Jeff Atwood" },
-        { text: "Any fool can write code that a computer can understand Good programmers write code that humans can understand", source: "Martin Fowler" },
-        { text: "First solve the problem Then write the code If you spend too long on the second step you skipped the first", source: "John Johnson" },
-        { text: "Simplicity is prerequisite for reliability If you cannot explain it simply you do not understand it well enough", source: "Edsger Dijkstra" },
-        { text: "Talk is cheap Show me the code Make sure that code is clean fast and does exactly what it needs to do", source: "Linus Torvalds" },
+        { text: "Good programmers write const clean code that humans can understand using async functions and clean returns", source: "Software Craft" },
+        { text: "First solve the problem then write the code with clean functions and immutable data structures", source: "Engineering Logic" },
+        { text: "Every line of code you deploy to production is code that has to be tested and debugged in real time", source: "DevOps Wisdom" },
+        { text: "Simplicity is prerequisite for reliability so keep your database queries indexed and your websocket packets light", source: "Systems Architecture" },
+        { text: "The secret to high velocity development is flow state without the friction of syntax errors and typos", source: "Developer Productivity" },
       ];
     }
     updateLobbyState();
