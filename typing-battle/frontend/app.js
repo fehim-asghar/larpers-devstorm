@@ -10,62 +10,62 @@
   const $ = id => document.getElementById(id);
   const screens = { lobby: $('lobby'), vs: $('vs-screen'), arena: $('arena'), results: $('results') };
   const el = {
-    vsScreen:        $('vs-screen'),
-    vsP1Avatar:      $('vs-p1-avatar'),
-    vsP1Name:        $('vs-p1-name'),
-    vsP1Badge:       $('vs-p1-badge'),
-    vsP2Avatar:      $('vs-p2-avatar'),
-    vsP2Name:        $('vs-p2-name'),
-    vsP2Badge:       $('vs-p2-badge'),
-    btnSetGhost:     $('btn-set-ghost'),
-    btnRaceGhost:    $('btn-race-ghost'),
-    ghostPreview:    $('ghost-preview'),
-    gpWpm:           $('ghost-preview-wpm'),
-    gpAcc:           $('ghost-preview-acc'),
-    gpTime:          $('ghost-preview-time'),
-    countdown:       $('countdown'),
-    countdownNum:    $('countdown-num'),
-    pauseOverlay:    $('pause-overlay'),
-    modeBadge:       $('mode-badge'),
-    btnAudioToggle:  $('btn-audio-toggle'),
+    vsScreen: $('vs-screen'),
+    vsP1Avatar: $('vs-p1-avatar'),
+    vsP1Name: $('vs-p1-name'),
+    vsP1Badge: $('vs-p1-badge'),
+    vsP2Avatar: $('vs-p2-avatar'),
+    vsP2Name: $('vs-p2-name'),
+    vsP2Badge: $('vs-p2-badge'),
+    btnSetGhost: $('btn-set-ghost'),
+    btnRaceGhost: $('btn-race-ghost'),
+    ghostPreview: $('ghost-preview'),
+    gpWpm: $('ghost-preview-wpm'),
+    gpAcc: $('ghost-preview-acc'),
+    gpTime: $('ghost-preview-time'),
+    countdown: $('countdown'),
+    countdownNum: $('countdown-num'),
+    pauseOverlay: $('pause-overlay'),
+    modeBadge: $('mode-badge'),
+    btnAudioToggle: $('btn-audio-toggle'),
     audioToggleIcon: $('audio-toggle-icon'),
     audioToggleText: $('audio-toggle-text'),
-    textDisplay:     $('text-display'),
-    hudWpm:          $('hud-wpm'),
-    hudTime:         $('hud-time'),
-    hudAcc:          $('hud-acc'),
-    progressPlayer:  $('progress-player'),
-    progressGhost:   $('progress-ghost'),
-    ghostRow:        $('ghost-progress-row'),
-    hiddenInput:     $('hidden-input'),
-    resultBanner:    $('result-banner'),
-    speedTierBadge:  $('speed-tier-badge'),
-    statPWpm:        $('stat-p-wpm'),
-    statPAcc:        $('stat-p-acc'),
-    statPTime:       $('stat-p-time'),
-    statPCons:       $('stat-p-cons'),
-    statCardGhost:   $('stat-card-ghost'),
-    statGWpm:        $('stat-g-wpm'),
-    statGAcc:        $('stat-g-acc'),
-    statGTime:       $('stat-g-time'),
-    statDelta:       $('stat-delta'),
-    velocityChart:   $('velocity-chart'),
-    btnCopyCard:     $('btn-copy-card'),
-    btnNewGhost:     $('btn-new-ghost'),
-    btnRaceAgain:    $('btn-race-again'),
-    btnBackLobby:    $('btn-back-lobby'),
-    btnOnlineDuel:   $('btn-online-duel'),
-    matchmakingModal:$('matchmaking-modal'),
-    matchmakingStatus:$('matchmaking-status'),
-    btnCancelMatch:  $('btn-cancel-match'),
-    profilePill:     $('profile-pill'),
-    userAvatar:      $('user-avatar'),
-    userName:        $('user-name'),
-    userMmrBadge:    $('user-mmr-badge'),
-    authModal:       $('auth-modal'),
+    textDisplay: $('text-display'),
+    hudWpm: $('hud-wpm'),
+    hudTime: $('hud-time'),
+    hudAcc: $('hud-acc'),
+    progressPlayer: $('progress-player'),
+    progressGhost: $('progress-ghost'),
+    ghostRow: $('ghost-progress-row'),
+    hiddenInput: $('hidden-input'),
+    resultBanner: $('result-banner'),
+    speedTierBadge: $('speed-tier-badge'),
+    statPWpm: $('stat-p-wpm'),
+    statPAcc: $('stat-p-acc'),
+    statPTime: $('stat-p-time'),
+    statPCons: $('stat-p-cons'),
+    statCardGhost: $('stat-card-ghost'),
+    statGWpm: $('stat-g-wpm'),
+    statGAcc: $('stat-g-acc'),
+    statGTime: $('stat-g-time'),
+    statDelta: $('stat-delta'),
+    velocityChart: $('velocity-chart'),
+    btnCopyCard: $('btn-copy-card'),
+    btnNewGhost: $('btn-new-ghost'),
+    btnRaceAgain: $('btn-race-again'),
+    btnBackLobby: $('btn-back-lobby'),
+    btnOnlineDuel: $('btn-online-duel'),
+    matchmakingModal: $('matchmaking-modal'),
+    matchmakingStatus: $('matchmaking-status'),
+    btnCancelMatch: $('btn-cancel-match'),
+    profilePill: $('profile-pill'),
+    userAvatar: $('user-avatar'),
+    userName: $('user-name'),
+    userMmrBadge: $('user-mmr-badge'),
+    authModal: $('auth-modal'),
     googleBtnContainer: $('google-btn-container'),
-    btnDemoSignin:   $('btn-demo-signin'),
-    btnCancelAuth:   $('btn-cancel-auth'),
+    btnDemoSignin: $('btn-demo-signin'),
+    btnCancelAuth: $('btn-cancel-auth'),
     btnOpenLeaderboard: $('btn-open-leaderboard'),
     leaderboardModal: $('leaderboard-modal'),
     btnCloseLeaderboard: $('btn-close-leaderboard'),
@@ -75,20 +75,20 @@
     viewLeaderboardRankings: $('view-leaderboard-rankings'),
     viewLeaderboardHistory: $('view-leaderboard-history'),
     matchHistoryList: $('match-history-list'),
-    btnCustomRoom:      $('btn-custom-room'),
-    customRoomModal:    $('custom-room-modal'),
+    btnCustomRoom: $('btn-custom-room'),
+    customRoomModal: $('custom-room-modal'),
     btnCloseCustomRoom: $('btn-close-custom-room'),
-    tabCreateRoom:      $('tab-create-room'),
-    tabJoinRoom:        $('tab-join-room'),
-    roomCreatePanel:    $('room-create-panel'),
-    roomJoinPanel:      $('room-join-panel'),
-    displayRoomCode:    $('display-room-code'),
-    btnCopyCode:        $('btn-copy-code'),
-    btnCopyLink:        $('btn-copy-link'),
-    roomWaitingStatus:  $('room-waiting-status'),
-    inputRoomCode:      $('input-room-code'),
-    btnJoinRoomSubmit:  $('btn-join-room-submit'),
-    roomJoinError:      $('room-join-error'),
+    tabCreateRoom: $('tab-create-room'),
+    tabJoinRoom: $('tab-join-room'),
+    roomCreatePanel: $('room-create-panel'),
+    roomJoinPanel: $('room-join-panel'),
+    displayRoomCode: $('display-room-code'),
+    btnCopyCode: $('btn-copy-code'),
+    btnCopyLink: $('btn-copy-link'),
+    roomWaitingStatus: $('room-waiting-status'),
+    inputRoomCode: $('input-room-code'),
+    btnJoinRoomSubmit: $('btn-join-room-submit'),
+    roomJoinError: $('room-join-error'),
   };
 
   // ─── State ───
@@ -295,10 +295,10 @@
 
   function getSpeedTier(wpm) {
     if (wpm >= 120) return '⚡ Phantom';
-    if (wpm >= 95)  return '🔥 Apex';
-    if (wpm >= 75)  return '🌸 Viper';
-    if (wpm >= 55)  return '🏎️ Striker';
-    if (wpm >= 35)  return '⚡ Cruiser';
+    if (wpm >= 95) return '🔥 Apex';
+    if (wpm >= 75) return '🌸 Viper';
+    if (wpm >= 55) return '🏎️ Striker';
+    if (wpm >= 35) return '⚡ Cruiser';
     return '🌱 Novice';
   }
 
@@ -351,7 +351,7 @@
         osc.start(t);
         osc.stop(t + 0.13);
         bgmNoteIndex++;
-      } catch (e) {}
+      } catch (e) { }
     }, 180);
   }
 
@@ -415,7 +415,7 @@
     isMuted = !isMuted;
     try {
       localStorage.setItem('typeghost_muted', isMuted ? 'true' : 'false');
-    } catch (e) {}
+    } catch (e) { }
     if (isMuted) stopLobbyBGM();
     else if (screens.lobby.classList.contains('active')) startLobbyBGM();
     updateAudioUI();
@@ -442,7 +442,7 @@
     const bgVideo = $('lobby-bg-video');
     if (bgVideo) {
       if (name === 'lobby') {
-        bgVideo.play().catch(() => {});
+        bgVideo.play().catch(() => { });
         startLobbyBGM();
       } else {
         bgVideo.pause();
@@ -465,7 +465,7 @@
   function saveGhostToStorage(data) {
     try {
       localStorage.setItem('typeghost_ghost', JSON.stringify(data));
-    } catch (e) {}
+    } catch (e) { }
   }
 
   function updateLobbyState() {
@@ -540,10 +540,10 @@
 
   function getSpeedTier(wpm) {
     if (wpm >= 110) return '👑 MECHANICAL GOD';
-    if (wpm >= 90)  return '🔥 GHOST SLAYER';
-    if (wpm >= 70)  return '⚡ KEYBOARD ATHLETE';
-    if (wpm >= 50)  return '🔵 DAILY DRIVER';
-    if (wpm >= 30)  return '🟡 LEARNING THE ROPES';
+    if (wpm >= 90) return '🔥 GHOST SLAYER';
+    if (wpm >= 70) return '⚡ KEYBOARD ATHLETE';
+    if (wpm >= 50) return '🔵 DAILY DRIVER';
+    if (wpm >= 30) return '🟡 LEARNING THE ROPES';
     return '🐢 HUNT & PECK';
   }
 
@@ -668,7 +668,7 @@
       const c = chars[idx];
       c.classList.remove('current', 'ghost-cursor');
       c.classList.add('blast-pop');
-      
+
       // Ascending arcade pop pitch
       const pitch = 320 + Math.min(1100, idx * (900 / total));
       playBlastChirp(pitch);
@@ -739,6 +739,7 @@
       if (data.success && data.user) {
         currentUser = data.user;
         localStorage.setItem('syntax_user', JSON.stringify(currentUser));
+        if (data.token) localStorage.setItem('syntax_token', data.token);
         updateProfileUI();
         el.authModal.classList.add('hidden');
         startMatchmaking();
@@ -765,9 +766,12 @@
       if (data.success && data.user) {
         currentUser = data.user;
         localStorage.setItem('syntax_user', JSON.stringify(currentUser));
+        if (data.token) localStorage.setItem('syntax_token', data.token);
         updateProfileUI();
         el.authModal.classList.add('hidden');
         startMatchmaking();
+      } else if (data.error) {
+        alert(data.error);
       }
     } catch (e) {
       console.error('Demo auth error:', e);
@@ -787,6 +791,8 @@
       if (confirm(`Logged in as ${currentUser.username} (${currentUser.mmr} MMR).\n\nDo you want to log out?`)) {
         currentUser = null;
         localStorage.removeItem('syntax_user');
+        localStorage.removeItem('syntax_token');
+        if (ws) ws.close();
         updateProfileUI();
       }
     } else {
@@ -830,8 +836,8 @@
         const rankNum = idx + 1;
         const rankBadgeClass = rankNum === 1 ? 'rank-badge-1' : (rankNum === 2 ? 'rank-badge-2' : (rankNum === 3 ? 'rank-badge-3' : ''));
         const tier = getSpeedTier(player.best_wpm || 0);
-        const winRate = player.matches_played > 0 
-          ? Math.round((player.matches_won / player.matches_played) * 100) + '%' 
+        const winRate = player.matches_played > 0
+          ? Math.round((player.matches_won / player.matches_played) * 100) + '%'
           : '—';
         const isActive = currentUser && currentUser.id === player.id ? 'active-user' : '';
 
@@ -875,7 +881,7 @@
         const matchTypeLabel = m.is_ranked ? '⚔️ Ranked' : '🎮 Custom';
         const outcomeClass = isWinner ? 'win' : 'lose';
         const outcomeText = isWinner ? 'VICTORY' : 'DEFEAT';
-        const mmrDeltaText = m.is_ranked 
+        const mmrDeltaText = m.is_ranked
           ? (isP1 ? (m.p1_mmr_delta >= 0 ? `+${m.p1_mmr_delta}` : `${m.p1_mmr_delta}`) : (m.p2_mmr_delta >= 0 ? `+${m.p2_mmr_delta}` : `${m.p2_mmr_delta}`)) + ' MMR'
           : '0 MMR';
 
@@ -954,7 +960,7 @@
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host || 'localhost:3000';
-    
+
     try {
       if (ws) ws.close();
       ws = new WebSocket(`${protocol}//${host}`);
@@ -967,10 +973,11 @@
     el.displayRoomCode.textContent = currentRoomCode;
 
     ws.onopen = () => {
+      const token = localStorage.getItem('syntax_token');
+      if (token) ws.send(JSON.stringify({ type: 'AUTH', token }));
       ws.send(JSON.stringify({
         type: 'CREATE_ROOM',
-        roomCode: currentRoomCode,
-        user: currentUser || { id: 'guest_' + Math.random().toString(36).slice(2, 8), username: 'Host (Guest)', avatar_url: 'miku.gif' }
+        roomCode: currentRoomCode
       }));
     };
 
@@ -1004,10 +1011,11 @@
     }
 
     ws.onopen = () => {
+      const token = localStorage.getItem('syntax_token');
+      if (token) ws.send(JSON.stringify({ type: 'AUTH', token }));
       ws.send(JSON.stringify({
         type: 'JOIN_ROOM',
-        roomCode: cleanCode,
-        user: currentUser || { id: 'guest_' + Math.random().toString(36).slice(2, 8), username: 'Friend (Guest)', avatar_url: 'miku.gif' }
+        roomCode: cleanCode
       }));
     };
 
@@ -1041,7 +1049,7 @@
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host || 'localhost:3000';
-    
+
     try {
       if (ws) ws.close();
       ws = new WebSocket(`${protocol}//${host}`);
@@ -1054,8 +1062,10 @@
     el.matchmakingStatus.textContent = 'Connecting to relay server...';
 
     ws.onopen = () => {
+      const token = localStorage.getItem('syntax_token');
+      if (token) ws.send(JSON.stringify({ type: 'AUTH', token }));
       el.matchmakingStatus.textContent = 'Searching for live rival...';
-      ws.send(JSON.stringify({ type: 'FIND_MATCH', user: currentUser }));
+      ws.send(JSON.stringify({ type: 'FIND_MATCH' }));
     };
 
     wireWebSocketEvents();
@@ -1642,13 +1652,13 @@
   async function init() {
     try {
       isMuted = localStorage.getItem('typeghost_muted') === 'true';
-    } catch (e) {}
+    } catch (e) { }
     updateAudioUI();
 
     try {
       const savedUser = localStorage.getItem('syntax_user');
       if (savedUser) currentUser = JSON.parse(savedUser);
-    } catch (e) {}
+    } catch (e) { }
     updateProfileUI();
 
     try {
@@ -1666,18 +1676,18 @@
           { theme: 'filled_black', size: 'large', shape: 'pill', width: 240 }
         );
       }
-    } catch (e) {}
+    } catch (e) { }
 
     try {
-      const res = await fetch('quotes.json?v=' + Date.now());
+      const res = await fetch('quotes.json');
       quotes = await res.json();
     } catch (e) {
       quotes = [
-        { text: "Good programmers write const clean code that humans can understand using async functions and clean returns", source: "Software Craft" },
-        { text: "First solve the problem then write the code with clean functions and immutable data structures", source: "Engineering Logic" },
-        { text: "Every line of code you deploy to production is code that has to be tested and debugged in real time", source: "DevOps Wisdom" },
-        { text: "Simplicity is prerequisite for reliability so keep your database queries indexed and your websocket packets light", source: "Systems Architecture" },
-        { text: "The secret to high velocity development is flow state without the friction of syntax errors and typos", source: "Developer Productivity" },
+        { text: "The best code is no code at all Every new line of code you bring into the world is code that has to be debugged", source: "Jeff Atwood" },
+        { text: "Any fool can write code that a computer can understand Good programmers write code that humans can understand", source: "Martin Fowler" },
+        { text: "First solve the problem Then write the code If you spend too long on the second step you skipped the first", source: "John Johnson" },
+        { text: "Simplicity is prerequisite for reliability If you cannot explain it simply you do not understand it well enough", source: "Edsger Dijkstra" },
+        { text: "Talk is cheap Show me the code Make sure that code is clean fast and does exactly what it needs to do", source: "Linus Torvalds" },
       ];
     }
     updateLobbyState();

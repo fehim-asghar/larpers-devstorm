@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const crypto = require('crypto');
 const express = require('express');
 const { WebSocketServer } = require('ws');
 
@@ -23,6 +24,27 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '996351835462-2pmv3rsnk
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 const db = require('./db');
+
+// In-Memory Session Token Store (token -> { userId, expiresAt })
+const sessionTokens = new Map();
+
+function createSessionToken(userId) {
+  const token = 'tok_' + crypto.randomBytes(24).toString('hex');
+  const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
+  sessionTokens.set(token, { userId, expiresAt });
+  return token;
+}
+
+function getUserFromSessionToken(token) {
+  if (!token || typeof token !== 'string') return null;
+  const session = sessionTokens.get(token);
+  if (!session) return null;
+  if (Date.now() > session.expiresAt) {
+    sessionTokens.delete(token);
+    return null;
+  }
+  return db.getUserById(session.userId);
+}
 
 let quotes = [];
 try {
@@ -70,7 +92,10 @@ app.post('/api/auth/google', async (req, res) => {
         avatarUrl = payload.picture || null;
       }
     } else if (mockUser) {
-      // 1-Click Dev / Demo mode login
+      // Gate mock auth behind environment flag for production safety
+      if (process.env.ALLOW_MOCK_AUTH !== 'true') {
+        return res.status(403).json({ error: 'Mock authentication is disabled in production.' });
+      }
       googleId = 'mock_g_' + (mockUser.id || 'dev_user');
       username = mockUser.username || 'Faheem (Ranked)';
       avatarUrl = mockUser.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=Faheem';
@@ -79,7 +104,8 @@ app.post('/api/auth/google', async (req, res) => {
     }
 
     const user = db.upsertGoogleUser({ googleId, username, avatarUrl });
-    return res.json({ success: true, user });
+    const token = createSessionToken(user.id);
+    return res.json({ success: true, user, token });
   } catch (err) {
     console.error('Google Auth Error:', err);
     return res.status(401).json({ error: 'Invalid Google credential' });
@@ -159,18 +185,35 @@ function computeMmrDeltas(winnerUser, loserUser, winnerStats, loserStats) {
 wss.on('connection', (ws) => {
   ws.opponent = null;
   ws.matchSession = null;
-  ws.user = null;
+  ws.user = {
+    id: 'guest_' + crypto.randomBytes(3).toString('hex'),
+    username: 'Guest ' + Math.floor(100 + Math.random() * 900),
+    avatar_url: 'miku.gif',
+    isGuest: true,
+    mmr: 500
+  };
   ws.roomCode = null;
 
   ws.on('message', (msgStr) => {
     try {
       const msg = JSON.parse(msgStr);
 
+      // ─── 0. Session Authentication ───
+      if (msg.type === 'AUTH') {
+        const authUser = getUserFromSessionToken(msg.token);
+        if (authUser) {
+          ws.user = authUser;
+          ws.send(JSON.stringify({ type: 'AUTH_SUCCESS', user: authUser }));
+        } else {
+          ws.send(JSON.stringify({ type: 'AUTH_REQUIRED', message: 'Guest mode active.' }));
+        }
+        return;
+      }
+
       // ─── 1. Custom Unranked Rooms (Phase 5) ───
       if (msg.type === 'CREATE_ROOM') {
         const code = (msg.roomCode || 'RUSH-' + Math.floor(10 + Math.random() * 90)).toUpperCase();
-        const hostUser = msg.user || { id: 'guest_' + Math.random().toString(36).slice(2, 8), username: 'Host (Guest)', avatar_url: 'miku.gif' };
-        ws.user = hostUser;
+        const hostUser = ws.user; // Use server-verified identity only
         ws.roomCode = code;
 
         customRooms.set(code, {
@@ -198,8 +241,7 @@ wss.on('connection', (ws) => {
           return;
         }
 
-        const guestUser = msg.user || { id: 'guest_' + Math.random().toString(36).slice(2, 8), username: 'Friend (Guest)', avatar_url: 'miku.gif' };
-        ws.user = guestUser;
+        const guestUser = ws.user; // Use server-verified identity only
         ws.roomCode = code;
         room.guestWs = ws;
         room.guestUser = guestUser;
@@ -210,6 +252,7 @@ wss.on('connection', (ws) => {
           p1: room.hostWs,
           p2: room.guestWs,
           paragraph: room.paragraph,
+          startTime: Date.now(),
           p1Stats: null,
           p2Stats: null,
           isResolved: false,
@@ -251,8 +294,7 @@ wss.on('connection', (ws) => {
 
       // ─── 2. Ranked Matchmaking Queue (±150 MMR) ───
       if (msg.type === 'FIND_MATCH') {
-        const playerUser = msg.user ? (db.getUserById(msg.user.id) || msg.user) : { id: 'guest_' + Math.random().toString(36).slice(2, 8), username: 'Guest', mmr: 500 };
-        ws.user = playerUser;
+        const playerUser = ws.user; // Server-verified identity only
 
         // Clean out any stale socket references for this user
         rankedQueue = rankedQueue.filter(p => p.ws !== ws && p.ws.readyState === 1);
@@ -281,6 +323,7 @@ wss.on('connection', (ws) => {
             p1,
             p2,
             paragraph,
+            startTime: Date.now(),
             p1Stats: null,
             p2Stats: null,
             isResolved: false,
@@ -314,19 +357,44 @@ wss.on('connection', (ws) => {
         }
       }
 
-      // ─── 5. Race Finish & Resolution ───
+      // ─── 5. Race Finish & Resolution (Server-Authoritative Validation) ───
       if (msg.type === 'FINISH') {
         const session = ws.matchSession;
+        if (!session) return;
+
+        // Server-Side Timestamp & WPM Clamping to prevent cheat injection
+        const now = Date.now();
+        const serverElapsedMs = Math.max(500, now - (session.startTime || now));
+        const quoteLen = session.paragraph ? session.paragraph.length : 100;
+        const actualServerWpm = Math.round(((quoteLen / 5) / (serverElapsedMs / 60000)));
+        const maxAllowedWpm = Math.min(240, actualServerWpm + 15);
+
+        let claimedWpm = parseInt(msg.stats?.wpm) || 0;
+        let claimedAcc = Math.min(100, Math.max(0, parseInt(msg.stats?.accuracy) || 0));
+        let claimedTimeMs = parseInt(msg.stats?.timeMs) || serverElapsedMs;
+
+        if (claimedWpm > maxAllowedWpm || claimedTimeMs < (serverElapsedMs - 2000) || serverElapsedMs < 2000) {
+          console.warn(`[Anti-Cheat] Sanitized stats for user ${ws.user?.id}: claimed ${claimedWpm} WPM in ${claimedTimeMs}ms (server elapsed: ${serverElapsedMs}ms, clamped to ${Math.min(claimedWpm, maxAllowedWpm)} WPM)`);
+          claimedWpm = Math.min(claimedWpm, maxAllowedWpm);
+          claimedTimeMs = serverElapsedMs;
+        }
+
+        const sanitizedStats = {
+          wpm: claimedWpm,
+          accuracy: claimedAcc,
+          timeMs: claimedTimeMs
+        };
+
         if (ws.opponent && ws.opponent.readyState === 1) {
           ws.opponent.send(JSON.stringify({
             type: 'OPPONENT_FINISHED',
-            stats: msg.stats
+            stats: sanitizedStats
           }));
         }
 
         if (session && !session.isResolved) {
-          if (session.p1 === ws) session.p1Stats = msg.stats;
-          if (session.p2 === ws) session.p2Stats = msg.stats;
+          if (session.p1 === ws) session.p1Stats = sanitizedStats;
+          if (session.p2 === ws) session.p2Stats = sanitizedStats;
 
           const resolveMatch = () => {
             if (session.isResolved) return;
