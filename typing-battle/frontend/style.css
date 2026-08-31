@@ -159,6 +159,67 @@ kbd {
   margin-top: 16px;
 }
 
+/* Solo Practice Combined Button */
+.solo-practice-group {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+}
+.solo-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: rgba(14, 19, 34, 0.96);
+  border: 1px solid var(--accent-player);
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: 20;
+  box-shadow: 0 8px 32px rgba(0, 255, 255, 0.15), 0 2px 8px rgba(0,0,0,0.6);
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.solo-practice-group.open .solo-dropdown {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: all;
+}
+.solo-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 18px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-race);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.solo-dropdown-item:hover {
+  background: rgba(0, 255, 255, 0.12);
+}
+.solo-dropdown-item:not(:last-child) {
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.solo-dropdown-item:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.solo-dropdown-item:disabled:hover {
+  background: transparent;
+}
+.solo-dropdown-item kbd {
+  margin-left: auto;
+}
+
 /* ─── Buttons ─── */
 .btn {
   display: inline-flex;
@@ -171,14 +232,13 @@ kbd {
   letter-spacing: 1px;
   text-transform: uppercase;
   border: none;
-  border-radius: var(--radius);
+  border-radius: 14px;
   cursor: pointer;
   transition: all var(--transition);
   position: relative;
   overflow: hidden;
-  transform: skewX(-6deg);
 }
-.btn:active { transform: scale(0.97) skewX(-6deg); }
+.btn:active { transform: scale(0.97); }
 
 .btn-primary {
   background: var(--accent-player);
@@ -187,7 +247,7 @@ kbd {
 }
 .btn-primary:hover {
   box-shadow: 0 0 35px var(--accent-player-glow), 0 6px 20px rgba(0,0,0,0.5);
-  transform: translateY(-2px) skewX(-6deg);
+  transform: translateY(-2px);
 }
 
 .btn-secondary {
@@ -201,7 +261,7 @@ kbd {
   background: var(--bg-card-hover);
   border-color: var(--accent-ghost);
   box-shadow: 0 0 20px var(--accent-ghost-glow);
-  transform: translateY(-2px) skewX(-6deg);
+  transform: translateY(-2px);
 }
 .btn-secondary:disabled {
   opacity: 0.35;
@@ -216,7 +276,7 @@ kbd {
 }
 .btn-online:hover {
   box-shadow: 0 0 40px rgba(255, 0, 127, 0.9), 0 6px 20px rgba(0,0,0,0.5);
-  transform: translateY(-2px) skewX(-6deg);
+  transform: translateY(-2px);
 }
 
 .btn-custom {
@@ -227,7 +287,7 @@ kbd {
 }
 .btn-custom:hover {
   box-shadow: 0 0 40px rgba(157, 78, 221, 0.9), 0 6px 20px rgba(0,0,0,0.5);
-  transform: translateY(-2px) skewX(-6deg);
+  transform: translateY(-2px);
 }
 
 .btn-tertiary {
@@ -239,7 +299,7 @@ kbd {
 .btn-tertiary:hover {
   color: var(--text-primary);
   border-color: var(--text-muted);
-  transform: translateY(-2px) skewX(-6deg);
+  transform: translateY(-2px);
 }
 
 /* ─── Custom Room Modal ─── */

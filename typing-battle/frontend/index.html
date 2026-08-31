@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="SYNTAX//RUSH — Real-time competitive browser typing speed battle. Race the ghost. Beat the record.">
+  <meta name="description" content="SYNTAX//RUSH — Real-time competitive browser typing speed battle. Beat your best. Race live rivals.">
   <title>SYNTAX//RUSH — Browser Typing Battle Arena</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -144,7 +144,7 @@
 
     <div class="lobby-content">
       <h1 class="logo">SYNTAX<span class="logo-slash">//</span><span class="logo-ghost">RUSH</span></h1>
-      <p class="tagline">Competitive Browser Speed Duel &middot; Race the Ghost</p>
+      <p class="tagline">Competitive Browser Speed Duel &middot; Beat Your Best</p>
 
       <!-- Phase 4: Curriculum Ladder & Tier Selector -->
       <div class="tier-selector-panel" id="tier-selector-panel">
@@ -174,14 +174,20 @@
       </div>
 
       <div class="lobby-actions">
-        <button id="btn-set-ghost" class="btn btn-primary">
-          <span class="btn-icon">⌨</span> Set Ghost
-          <kbd>Space</kbd>
-        </button>
-        <button id="btn-race-ghost" class="btn btn-secondary" disabled>
-          <span class="btn-icon">👻</span> Race Ghost
-          <kbd>Enter</kbd>
-        </button>
+        <div class="solo-practice-group" id="solo-practice-group">
+          <button id="btn-solo-practice" class="btn btn-primary">
+            <span class="btn-icon">⌨</span> Solo Practice
+            <kbd>Space</kbd>
+          </button>
+          <div class="solo-dropdown">
+            <button id="btn-set-ghost" class="solo-dropdown-item">
+              <span>🎯</span> New Run <kbd>Space</kbd>
+            </button>
+            <button id="btn-race-ghost" class="solo-dropdown-item" disabled>
+              <span>🔁</span> Beat My Score <kbd>Enter</kbd>
+            </button>
+          </div>
+        </div>
         <button id="btn-online-duel" class="btn btn-online">
           <span class="btn-icon">⚔️</span> Ranked 1v1 Duel
           <kbd>M</kbd>
@@ -271,7 +277,7 @@
       </div>
 
       <div id="ghost-preview" class="ghost-preview hidden">
-        <p class="ghost-preview-label">Ghost on file</p>
+        <p class="ghost-preview-label">Best score on file</p>
         <div class="ghost-preview-stats">
           <span id="ghost-preview-wpm" class="stat-pill">— WPM</span>
           <span id="ghost-preview-acc" class="stat-pill">— ACC</span>
@@ -373,7 +379,7 @@
         </div>
       </div>
       <div id="ghost-progress-row" class="progress-row hidden">
-        <span class="progress-label ghost-label">GHOST</span>
+        <span class="progress-label ghost-label">BEST</span>
         <div class="progress-track">
           <div id="progress-ghost" class="progress-fill progress-ghost"></div>
         </div>
@@ -388,7 +394,7 @@
   <section id="results" class="screen">
     <div class="results-content">
       <div class="results-header">
-        <h2 id="result-banner" class="result-banner">GHOST RECORDED</h2>
+        <h2 id="result-banner" class="result-banner">SCORE RECORDED</h2>
         <div id="speed-tier-badge" class="speed-tier-badge">⚡ KEYBOARD ATHLETE</div>
       </div>
 
@@ -411,7 +417,7 @@
           <div class="stat-row"><span class="stat-name">Consistency</span><span id="stat-p-cons" class="stat-val">95%</span></div>
         </div>
         <div id="stat-card-ghost" class="stat-card stat-card-ghost hidden">
-          <h3 class="stat-card-title ghost-label">GHOST</h3>
+          <h3 class="stat-card-title ghost-label">BEST SCORE</h3>
           <div class="stat-row"><span class="stat-name">WPM</span><span id="stat-g-wpm" class="stat-val">0</span></div>
           <div class="stat-row"><span class="stat-name">Accuracy</span><span id="stat-g-acc" class="stat-val">0%</span></div>
           <div class="stat-row"><span class="stat-name">Time</span><span id="stat-g-time" class="stat-val">0s</span></div>
@@ -476,11 +482,11 @@
           <span class="btn-icon">📋</span> Copy Score Card
         </button>
         <button id="btn-new-ghost" class="btn btn-primary">
-          <span class="btn-icon">⌨</span> Set New Ghost
+          <span class="btn-icon">🎯</span> New Run
           <kbd>Tab</kbd>
         </button>
         <button id="btn-race-again" class="btn btn-secondary" disabled>
-          <span class="btn-icon">🔁</span> Race Again
+          <span class="btn-icon">🔁</span> Beat My Score
           <kbd>Space</kbd>
         </button>
         <button id="btn-back-lobby" class="btn btn-tertiary">

@@ -111,6 +111,8 @@
     inputRoomCode: $('input-room-code'),
     btnJoinRoomSubmit: $('btn-join-room-submit'),
     roomJoinError: $('room-join-error'),
+    soloPracticeGroup: $('solo-practice-group'),
+    btnSoloPractice: $('btn-solo-practice'),
     btnTier1: $('btn-tier-1'),
     btnTier2: $('btn-tier-2'),
     btnTier3: $('btn-tier-3'),
@@ -1574,7 +1576,7 @@
     }
 
     switchScreen('arena');
-    el.modeBadge.textContent = mode === 'record' ? 'RECORDING' : 'RACING GHOST';
+    el.modeBadge.textContent = mode === 'record' ? 'NEW RUN' : 'BEAT MY SCORE';
     el.modeBadge.classList.toggle('ghost-mode', mode === 'race');
     el.ghostRow.classList.toggle('hidden', mode !== 'race');
     el.progressPlayer.style.width = '0%';
@@ -1702,7 +1704,7 @@
       }
     } else {
       el.statCardGhost.classList.add('hidden');
-      el.resultBanner.textContent = playerStats.accuracy === 100 ? 'PERFECT RUN. GHOST RECORDED.' : 'GHOST RECORDED';
+      el.resultBanner.textContent = playerStats.accuracy === 100 ? 'PERFECT RUN. SCORE RECORDED.' : 'SCORE RECORDED';
       el.resultBanner.className = 'result-banner recorded';
       if (playerStats.accuracy === 100) playVictoryFanfare();
     }
@@ -1878,8 +1880,18 @@
   // ══════════════════════════════════════════════════════
   // Event Bindings
   // ══════════════════════════════════════════════════════
-  el.btnSetGhost.addEventListener('click', () => startRace('record'));
-  el.btnRaceGhost.addEventListener('click', () => { if (!el.btnRaceGhost.disabled) startRace('race'); });
+  // Solo Practice Dropdown Toggle
+  el.btnSoloPractice.addEventListener('click', (e) => {
+    e.stopPropagation();
+    el.soloPracticeGroup.classList.toggle('open');
+  });
+  el.btnSetGhost.addEventListener('click', () => { el.soloPracticeGroup.classList.remove('open'); startRace('record'); });
+  el.btnRaceGhost.addEventListener('click', () => { if (!el.btnRaceGhost.disabled) { el.soloPracticeGroup.classList.remove('open'); startRace('race'); } });
+  document.addEventListener('click', (e) => {
+    if (el.soloPracticeGroup && !el.soloPracticeGroup.contains(e.target)) {
+      el.soloPracticeGroup.classList.remove('open');
+    }
+  });
   el.btnOnlineDuel.addEventListener('click', handleRankedDuelClick);
   el.btnCustomRoom.addEventListener('click', openCustomRoomModal);
   el.btnCloseCustomRoom.addEventListener('click', cancelMatchmaking);
