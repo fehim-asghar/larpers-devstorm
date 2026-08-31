@@ -144,8 +144,8 @@
   // Live Multiplayer State
   let ws = null;
   let isOnlineMatch = false;
-  onlineOpponentStats = null;
-  onlineOpponentFinished = false;
+  let onlineOpponentStats = null;
+  let onlineOpponentFinished = false;
   let opponentWpmHistory = [];
 
   // Phase 3: Error Taxonomy & Keystroke Diagnostics State
@@ -663,7 +663,8 @@
         ws.send(JSON.stringify({
           type: 'PROGRESS',
           charIndex: charIndex + 1,
-          wpm: currentWpm
+          wpm: currentWpm,
+          correct: true
         }));
       }
 
@@ -688,14 +689,28 @@
 
       // Phase 3: Error Taxonomy Classification
       const expectedChar = paragraph[charIndex];
+      let errorCategory = 'letter';
       if (expectedChar === ' ' || expectedChar === '\n' || expectedChar === '\t') {
+        errorCategory = 'whitespace';
         errorTaxonomy.whitespace++;
       } else if (/[{}()[\];:_\-=+*\/\\&|!<>?"'`~@#$%^,.]/.test(expectedChar)) {
+        errorCategory = 'symbol';
         errorTaxonomy.symbol++;
       } else {
         errorTaxonomy.letter++;
       }
       fumbledKeysMap[expectedChar] = (fumbledKeysMap[expectedChar] || 0) + 1;
+
+      // Stream error event to server for authoritative telemetry tracking
+      if (mode === 'online' && ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({
+          type: 'PROGRESS',
+          charIndex: charIndex,
+          wpm: currentWpm,
+          correct: false,
+          errorType: errorCategory
+        }));
+      }
 
       // Block advance: flash red shake on current char without incrementing charIndex
       chars[charIndex].className = 'char current' + (isCharSpace ? ' space' : '') + (isCharNewline ? ' newline' : '');

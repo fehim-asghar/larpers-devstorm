@@ -266,8 +266,15 @@ wss.on('connection', (ws) => {
 
         room.hostWs.firstKeyAt = null;
         room.hostWs.lastKeyAt = null;
+        room.hostWs.serverTotalKeystrokes = 0;
+        room.hostWs.serverErrors = 0;
+        room.hostWs.serverTaxonomy = { symbol: 0, letter: 0, whitespace: 0 };
+
         room.guestWs.firstKeyAt = null;
         room.guestWs.lastKeyAt = null;
+        room.guestWs.serverTotalKeystrokes = 0;
+        room.guestWs.serverErrors = 0;
+        room.guestWs.serverTaxonomy = { symbol: 0, letter: 0, whitespace: 0 };
 
         room.hostWs.matchSession = session;
         room.guestWs.matchSession = session;
@@ -343,8 +350,15 @@ wss.on('connection', (ws) => {
 
           p1.firstKeyAt = null;
           p1.lastKeyAt = null;
+          p1.serverTotalKeystrokes = 0;
+          p1.serverErrors = 0;
+          p1.serverTaxonomy = { symbol: 0, letter: 0, whitespace: 0 };
+
           p2.firstKeyAt = null;
           p2.lastKeyAt = null;
+          p2.serverTotalKeystrokes = 0;
+          p2.serverErrors = 0;
+          p2.serverTaxonomy = { symbol: 0, letter: 0, whitespace: 0 };
 
           p1.matchSession = session;
           p2.matchSession = session;
@@ -368,6 +382,15 @@ wss.on('connection', (ws) => {
         const now = Date.now();
         const charIdx = parseInt(msg.charIndex) || 0;
         const quoteLen = (ws.matchSession && ws.matchSession.paragraph) ? ws.matchSession.paragraph.length : 100;
+
+        // Server-side keystroke & error accounting
+        ws.serverTotalKeystrokes = (ws.serverTotalKeystrokes || 0) + 1;
+        if (msg.correct === false) {
+          ws.serverErrors = (ws.serverErrors || 0) + 1;
+          if (msg.errorType && ws.serverTaxonomy) {
+            ws.serverTaxonomy[msg.errorType] = (ws.serverTaxonomy[msg.errorType] || 0) + 1;
+          }
+        }
 
         // Record arrival timestamp of the first keystroke
         if (charIdx > 0 && !ws.firstKeyAt) {
@@ -410,28 +433,21 @@ wss.on('connection', (ws) => {
         // 100% Server-Derived True WPM
         const serverDerivedWpm = Math.min(240, Math.round(((quoteLen / 5) / (measuredDurationMs / 60000))));
         
-        // Server-Side Accuracy Verification & Clamping from Error Telemetry
-        let claimedAcc = Math.min(100, Math.max(0, parseInt(msg.stats?.accuracy) || 0));
-        let reportedErrors = parseInt(msg.stats?.totalErrors) || 0;
-        if (msg.stats?.errorTaxonomy) {
-          const tax = msg.stats.errorTaxonomy;
-          reportedErrors = Math.max(reportedErrors, (parseInt(tax.symbol) || 0) + (parseInt(tax.letter) || 0) + (parseInt(tax.whitespace) || 0));
-        }
+        // 100% Server-Derived True Accuracy from Telemetry Stream
+        const totalKeystrokes = ws.serverTotalKeystrokes || quoteLen;
+        const streamErrors = ws.serverErrors || 0;
+        const overheadErrors = Math.max(0, totalKeystrokes - quoteLen);
+        const measuredErrors = Math.max(streamErrors, overheadErrors, parseInt(msg.stats?.totalErrors) || 0);
 
-        const maxPossibleAcc = (quoteLen + reportedErrors > 0)
-          ? Math.round((quoteLen / (quoteLen + reportedErrors)) * 100)
+        const serverDerivedAcc = (quoteLen + measuredErrors > 0)
+          ? Math.max(0, Math.min(100, Math.round((quoteLen / (quoteLen + measuredErrors)) * 100)))
           : 100;
-
-        if (claimedAcc > maxPossibleAcc) {
-          console.warn(`[Anti-Cheat] Sanitized accuracy for user ${ws.user?.id}: claimed ${claimedAcc}% with ${reportedErrors} errors (clamped to ${maxPossibleAcc}%)`);
-          claimedAcc = maxPossibleAcc;
-        }
 
         const sanitizedStats = {
           wpm: serverDerivedWpm,
-          accuracy: claimedAcc,
+          accuracy: serverDerivedAcc,
           timeMs: measuredDurationMs,
-          errorTaxonomy: msg.stats?.errorTaxonomy || null,
+          errorTaxonomy: ws.serverTaxonomy || msg.stats?.errorTaxonomy || null,
           fumbledKeys: msg.stats?.fumbledKeys || null
         };
 
