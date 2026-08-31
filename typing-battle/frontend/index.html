@@ -323,6 +323,56 @@
         </div>
       </div>
 
+      <!-- Phase 3: Syntax Diagnostics & Error Taxonomy -->
+      <div id="syntax-diagnostics-card" class="syntax-diagnostics-card">
+        <div class="diagnostics-header">
+          <div class="diagnostics-title-group">
+            <span class="diagnostics-icon">🔬</span>
+            <h3 class="diagnostics-title">SYNTAX DIAGNOSTICS</h3>
+          </div>
+          <span id="diagnostics-summary-badge" class="diagnostics-badge">FLAWLESS RUN</span>
+        </div>
+        
+        <div class="taxonomy-grid">
+          <div class="taxonomy-item taxonomy-symbols">
+            <div class="taxonomy-label-row">
+              <span class="taxonomy-name">⚡ Symbol Misses</span>
+              <span id="tax-count-symbols" class="taxonomy-count">0</span>
+            </div>
+            <div class="taxonomy-bar-track">
+              <div id="tax-bar-symbols" class="taxonomy-bar-fill fill-symbols" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <div class="taxonomy-item taxonomy-letters">
+            <div class="taxonomy-label-row">
+              <span class="taxonomy-name">🔤 Letter Misses</span>
+              <span id="tax-count-letters" class="taxonomy-count">0</span>
+            </div>
+            <div class="taxonomy-bar-track">
+              <div id="tax-bar-letters" class="taxonomy-bar-fill fill-letters" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <div class="taxonomy-item taxonomy-whitespace">
+            <div class="taxonomy-label-row">
+              <span class="taxonomy-name">␣ Whitespace / Indent</span>
+              <span id="tax-count-whitespace" class="taxonomy-count">0</span>
+            </div>
+            <div class="taxonomy-bar-track">
+              <div id="tax-bar-whitespace" class="taxonomy-bar-fill fill-whitespace" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="fumbled-keys-container" class="fumbled-keys-container">
+          <span class="fumbled-label">Fumbled Keys:</span>
+          <div id="fumbled-pills-list" class="fumbled-pills-list">
+            <span class="fumbled-none">None! 🎯 Perfect keystroke accuracy</span>
+          </div>
+        </div>
+      </div>
+
       <canvas id="velocity-chart" class="velocity-chart" width="600" height="200"></canvas>
 
       <div class="results-actions">

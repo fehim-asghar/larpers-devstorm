@@ -409,12 +409,30 @@ wss.on('connection', (ws) => {
 
         // 100% Server-Derived True WPM
         const serverDerivedWpm = Math.min(240, Math.round(((quoteLen / 5) / (measuredDurationMs / 60000))));
+        
+        // Server-Side Accuracy Verification & Clamping from Error Telemetry
         let claimedAcc = Math.min(100, Math.max(0, parseInt(msg.stats?.accuracy) || 0));
+        let reportedErrors = parseInt(msg.stats?.totalErrors) || 0;
+        if (msg.stats?.errorTaxonomy) {
+          const tax = msg.stats.errorTaxonomy;
+          reportedErrors = Math.max(reportedErrors, (parseInt(tax.symbol) || 0) + (parseInt(tax.letter) || 0) + (parseInt(tax.whitespace) || 0));
+        }
+
+        const maxPossibleAcc = (quoteLen + reportedErrors > 0)
+          ? Math.round((quoteLen / (quoteLen + reportedErrors)) * 100)
+          : 100;
+
+        if (claimedAcc > maxPossibleAcc) {
+          console.warn(`[Anti-Cheat] Sanitized accuracy for user ${ws.user?.id}: claimed ${claimedAcc}% with ${reportedErrors} errors (clamped to ${maxPossibleAcc}%)`);
+          claimedAcc = maxPossibleAcc;
+        }
 
         const sanitizedStats = {
           wpm: serverDerivedWpm,
           accuracy: claimedAcc,
-          timeMs: measuredDurationMs
+          timeMs: measuredDurationMs,
+          errorTaxonomy: msg.stats?.errorTaxonomy || null,
+          fumbledKeys: msg.stats?.fumbledKeys || null
         };
 
         if (ws.opponent && ws.opponent.readyState === 1) {

@@ -50,6 +50,15 @@
     statGAcc: $('stat-g-acc'),
     statGTime: $('stat-g-time'),
     statDelta: $('stat-delta'),
+    syntaxDiagnosticsCard: $('syntax-diagnostics-card'),
+    diagnosticsSummaryBadge: $('diagnostics-summary-badge'),
+    taxCountSymbols: $('tax-count-symbols'),
+    taxBarSymbols: $('tax-bar-symbols'),
+    taxCountLetters: $('tax-count-letters'),
+    taxBarLetters: $('tax-bar-letters'),
+    taxCountWhitespace: $('tax-count-whitespace'),
+    taxBarWhitespace: $('tax-bar-whitespace'),
+    fumbledPillsList: $('fumbled-pills-list'),
     velocityChart: $('velocity-chart'),
     btnCopyCard: $('btn-copy-card'),
     btnNewGhost: $('btn-new-ghost'),
@@ -123,9 +132,13 @@
   // Live Multiplayer State
   let ws = null;
   let isOnlineMatch = false;
-  let onlineOpponentStats = null;
-  let onlineOpponentFinished = false;
+  onlineOpponentStats = null;
+  onlineOpponentFinished = false;
   let opponentWpmHistory = [];
+
+  // Phase 3: Error Taxonomy & Keystroke Diagnostics State
+  let errorTaxonomy = { symbol: 0, letter: 0, whitespace: 0 };
+  let fumbledKeysMap = {};
 
   // ══════════════════════════════════════════════════════
   // Audio Engine (Web Audio API — Universal Laptop Speaker Tuned)
@@ -661,6 +674,17 @@
       streak = 0;
       playError();
 
+      // Phase 3: Error Taxonomy Classification
+      const expectedChar = paragraph[charIndex];
+      if (expectedChar === ' ' || expectedChar === '\n' || expectedChar === '\t') {
+        errorTaxonomy.whitespace++;
+      } else if (/[{}()[\];:_\-=+*\/\\&|!<>?"'`~@#$%^,.]/.test(expectedChar)) {
+        errorTaxonomy.symbol++;
+      } else {
+        errorTaxonomy.letter++;
+      }
+      fumbledKeysMap[expectedChar] = (fumbledKeysMap[expectedChar] || 0) + 1;
+
       // Block advance: flash red shake on current char without incrementing charIndex
       chars[charIndex].className = 'char current' + (isCharSpace ? ' space' : '') + (isCharNewline ? ' newline' : '');
       chars[charIndex].classList.remove('wrong');
@@ -720,6 +744,9 @@
       accuracy: calcAccuracy(),
       consistency: calcConsistency(),
       timeMs: Math.round(elapsedMs),
+      errorTaxonomy: { ...errorTaxonomy },
+      fumbledKeys: { ...fumbledKeysMap },
+      totalErrors: errors
     };
 
     el.hiddenInput.removeEventListener('keydown', handleKeystroke);
@@ -1229,6 +1256,8 @@
     isExploding = false;
     wpmHistory = [];
     opponentWpmHistory = [];
+    errorTaxonomy = { symbol: 0, letter: 0, whitespace: 0 };
+    fumbledKeysMap = {};
 
     switchScreen('arena');
     el.modeBadge.textContent = '⚔️ LIVE 1v1 DUEL';
@@ -1334,6 +1363,8 @@
     wpmHistory = [];
     recordTimeline = [];
     ghostIdx = 0;
+    errorTaxonomy = { symbol: 0, letter: 0, whitespace: 0 };
+    fumbledKeysMap = {};
 
     if (mode === 'race' && ghostData) {
       paragraph = ghostData.paragraph;
@@ -1380,6 +1411,43 @@
 
     // Speed Tier
     el.speedTierBadge.textContent = getSpeedTier(playerStats.wpm);
+
+    // Phase 3: Populate Syntax Diagnostics & Error Taxonomy
+    const tax = playerStats.errorTaxonomy || errorTaxonomy;
+    const totalMisses = (tax.symbol || 0) + (tax.letter || 0) + (tax.whitespace || 0);
+
+    el.taxCountSymbols.textContent = tax.symbol || 0;
+    el.taxCountLetters.textContent = tax.letter || 0;
+    el.taxCountWhitespace.textContent = tax.whitespace || 0;
+
+    const maxTaxCount = Math.max(1, totalMisses);
+    el.taxBarSymbols.style.width = (((tax.symbol || 0) / maxTaxCount) * 100) + '%';
+    el.taxBarLetters.style.width = (((tax.letter || 0) / maxTaxCount) * 100) + '%';
+    el.taxBarWhitespace.style.width = (((tax.whitespace || 0) / maxTaxCount) * 100) + '%';
+
+    if (totalMisses === 0) {
+      el.diagnosticsSummaryBadge.textContent = '🎯 FLAWLESS RUN';
+      el.diagnosticsSummaryBadge.className = 'diagnostics-badge';
+    } else {
+      el.diagnosticsSummaryBadge.textContent = `⚠️ ${totalMisses} SYNTAX MISS${totalMisses === 1 ? '' : 'ES'}`;
+      el.diagnosticsSummaryBadge.className = 'diagnostics-badge has-errors';
+    }
+
+    // Render Fumbled Key Pills
+    const fumbled = playerStats.fumbledKeys || fumbledKeysMap;
+    const sortedFumbles = Object.entries(fumbled).sort((a, b) => b[1] - a[1]);
+
+    if (sortedFumbles.length === 0) {
+      el.fumbledPillsList.innerHTML = `<span class="fumbled-none">None! 🎯 100% pure keystroke accuracy</span>`;
+    } else {
+      el.fumbledPillsList.innerHTML = sortedFumbles.slice(0, 6).map(([char, count]) => {
+        let displayChar = char;
+        if (char === ' ') displayChar = '␣ Space';
+        else if (char === '\n') displayChar = '↵ Enter';
+        else if (char === '\t') displayChar = '⇥ Tab';
+        return `<span class="fumbled-pill"><span class="fumbled-char">${displayChar}</span> ×${count}</span>`;
+      }).join('');
+    }
 
     if (mode === 'online') {
       el.statCardGhost.classList.remove('hidden');
@@ -1447,14 +1515,20 @@
     const time = el.statPTime.textContent;
     const tier = el.speedTierBadge.textContent;
     const banner = el.resultBanner.textContent;
+    const totalMisses = (errorTaxonomy.symbol || 0) + (errorTaxonomy.letter || 0) + (errorTaxonomy.whitespace || 0);
 
     let text = `⚡ SYNTAX//RUSH SCORECARD ⚡\n`;
     text += `━━━━━━━━━━━━━━━━━━━━━\n`;
     text += `🏎️ Speed: ${wpm} WPM | Acc: ${acc} | Time: ${time}\n`;
     text += `🎖️ Tier: ${tier}\n`;
     text += `🏆 Outcome: ${banner}\n`;
+    if (totalMisses > 0) {
+      text += `🔬 Misses: ⚡${errorTaxonomy.symbol || 0} Sym · 🔤${errorTaxonomy.letter || 0} Let · ␣${errorTaxonomy.whitespace || 0} Spc\n`;
+    } else {
+      text += `🎯 Perfect Accuracy Run (0 Syntax Errors)\n`;
+    }
     text += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    text += `Play now: github.com/faheem/typing-battle`;
+    text += `Play live at: https://syntax-rush.onrender.com`;
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => {
