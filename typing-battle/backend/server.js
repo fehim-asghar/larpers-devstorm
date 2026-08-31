@@ -50,14 +50,40 @@ let quotes = [];
 try {
   quotes = JSON.parse(fs.readFileSync(path.join(__dirname, '../frontend/quotes.json'), 'utf8'));
 } catch (e) {
-  quotes = [{ text: 'Any fool can write code that a computer can understand Good programmers write code that humans can understand' }];
+  quotes = [{ text: 'Any fool can write code that a computer can understand Good programmers write code that humans can understand', tier: 1, source: 'Warm Up' }];
 }
 
-function getRandomQuote() {
+function getRandomQuote(tier = 1) {
   try {
     quotes = JSON.parse(fs.readFileSync(path.join(__dirname, '../frontend/quotes.json'), 'utf8'));
   } catch (e) {}
-  return quotes[Math.floor(Math.random() * quotes.length)].text;
+  const targetTier = Math.max(1, Math.min(3, parseInt(tier) || 1));
+  const filtered = quotes.filter(q => (q.tier || 1) === targetTier);
+  const pool = filtered.length > 0 ? filtered : quotes;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function checkTierPromotion(user, stats, activeTier) {
+  if (!user || !user.id || user.id.startsWith('guest_')) return null;
+  const currentTier = user.current_tier || 1;
+  const acc = stats.accuracy || 0;
+  const wpm = stats.wpm || 0;
+  const symbolErrors = stats.errorTaxonomy?.symbol || 0;
+
+  if (currentTier === 1 && activeTier === 1) {
+    // Tier 1 -> Tier 2 Gate: Accuracy >= 93% AND WPM >= 30
+    if (acc >= 93 && wpm >= 30) {
+      db.updateUserTier(user.id, 2);
+      return { unlockedTier: 2, title: 'TIER 2 · SYMBOLS & OPERATORS', desc: 'Unlocked brackets, operators, colons & assignments!' };
+    }
+  } else if (currentTier === 2 && activeTier === 2) {
+    // Tier 2 -> Tier 3 Gate: Accuracy >= 90% AND WPM >= 40 AND Symbol Errors <= 3
+    if (acc >= 90 && wpm >= 40 && symbolErrors <= 3) {
+      db.updateUserTier(user.id, 3);
+      return { unlockedTier: 3, title: 'TIER 3 · REAL MULTI-LINE SYNTAX', desc: 'Unlocked multi-line JS, Python, SQL, Rust & C++!' };
+    }
+  }
+  return null;
 }
 
 app.use(express.json());
@@ -140,6 +166,24 @@ app.get('/api/matches/recent', (req, res) => {
   } catch (err) {
     console.error('Recent matches error:', err);
     return res.status(500).json({ error: 'Failed to fetch recent matches' });
+  }
+});
+
+// Phase 4: Solo Practice Tier Finish & Evaluation Endpoint
+app.post('/api/practice/finish', (req, res) => {
+  try {
+    const { userId, stats, tier } = req.body;
+    if (!userId || !stats) return res.status(400).json({ error: 'Missing userId or stats' });
+    const user = db.getUserById(userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const activeTier = parseInt(tier) || 1;
+    const tierPromotion = checkTierPromotion(user, stats, activeTier);
+    const updatedUser = db.getUserById(userId);
+    return res.json({ success: true, tierPromotion, user: updatedUser });
+  } catch (err) {
+    console.error('Practice finish error:', err);
+    return res.status(500).json({ error: 'Failed to record practice run' });
   }
 });
 
@@ -328,19 +372,20 @@ wss.on('connection', (ws) => {
           rankedQueue = rankedQueue.filter(p => p !== opponentEntry);
           const p1 = opponentEntry.ws;
           const p2 = ws;
-
           p1.opponent = p2;
           p2.opponent = p1;
-
           const matchId = 'm_' + Math.random().toString(36).substring(2, 10);
-          const paragraph = getRandomQuote();
+          const matchTier = Math.min(p1.user?.current_tier || 1, p2.user?.current_tier || 1);
+          const quoteObj = getRandomQuote(matchTier);
           const matchNow = Date.now();
 
           const session = {
             id: matchId,
             p1,
             p2,
-            paragraph,
+            paragraph: quoteObj.text,
+            tier: matchTier,
+            quoteObj,
             matchStartSentAt: matchNow,
             p1Stats: null,
             p2Stats: null,
@@ -364,8 +409,8 @@ wss.on('connection', (ws) => {
           p2.matchSession = session;
           activeMatches.set(matchId, session);
 
-          p1.send(JSON.stringify({ type: 'MATCH_START', paragraph, role: 'p1', matchId, isRanked: true, opponentUser: p2.user }));
-          p2.send(JSON.stringify({ type: 'MATCH_START', paragraph, role: 'p2', matchId, isRanked: true, opponentUser: p1.user }));
+          p1.send(JSON.stringify({ type: 'MATCH_START', paragraph: quoteObj.text, quoteObj, tier: matchTier, role: 'p1', matchId, isRanked: true, opponentUser: p2.user }));
+          p2.send(JSON.stringify({ type: 'MATCH_START', paragraph: quoteObj.text, quoteObj, tier: matchTier, role: 'p2', matchId, isRanked: true, opponentUser: p1.user }));
         } else {
           rankedQueue.push({ ws, user: playerUser, joinedAt: Date.now() });
           ws.send(JSON.stringify({ type: 'WAITING', message: `Searching for rival near ${playerUser.mmr || 500} MMR...` }));
@@ -477,6 +522,11 @@ wss.on('connection', (ws) => {
             const winnerStats = p1Won ? s1 : s2;
             const loserStats = p1Won ? s2 : s1;
 
+            const p1Promotion = checkTierPromotion(p1.user, s1, session.tier || 1);
+            const p2Promotion = checkTierPromotion(p2.user, s2, session.tier || 1);
+            const winnerPromotion = p1Won ? p1Promotion : p2Promotion;
+            const loserPromotion = p1Won ? p2Promotion : p1Promotion;
+
             if (session.isRanked) {
               const { winnerDelta, loserDelta, bonuses } = computeMmrDeltas(winnerWs.user, loserWs.user, winnerStats, loserStats);
 
@@ -509,10 +559,10 @@ wss.on('connection', (ws) => {
               const updatedLoserUser = (loserWs.user && !loserWs.user.id.startsWith('guest_')) ? db.getUserById(loserWs.user.id) : { ...loserWs.user, mmr: Math.max(0, (loserWs.user?.mmr || 500) + loserDelta) };
 
               if (winnerWs.readyState === 1) {
-                winnerWs.send(JSON.stringify({ type: 'MATCH_RESULT', won: true, mmrDelta: winnerDelta, isRanked: true, user: updatedWinnerUser, bonuses }));
+                winnerWs.send(JSON.stringify({ type: 'MATCH_RESULT', won: true, mmrDelta: winnerDelta, isRanked: true, user: updatedWinnerUser, bonuses, tierPromotion: winnerPromotion }));
               }
               if (loserWs.readyState === 1) {
-                loserWs.send(JSON.stringify({ type: 'MATCH_RESULT', won: false, mmrDelta: loserDelta, isRanked: true, user: updatedLoserUser, bonuses: [] }));
+                loserWs.send(JSON.stringify({ type: 'MATCH_RESULT', won: false, mmrDelta: loserDelta, isRanked: true, user: updatedLoserUser, bonuses: [], tierPromotion: loserPromotion }));
               }
             } else {
               // Custom Unranked Room — 0 MMR Delta (Log match with is_ranked: 0, 0 MMR delta)

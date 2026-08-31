@@ -111,12 +111,21 @@
     inputRoomCode: $('input-room-code'),
     btnJoinRoomSubmit: $('btn-join-room-submit'),
     roomJoinError: $('room-join-error'),
+    btnTier1: $('btn-tier-1'),
+    btnTier2: $('btn-tier-2'),
+    btnTier3: $('btn-tier-3'),
+    tierCurrentBadge: $('tier-current-badge'),
+    tierPromotionBanner: $('tier-promotion-banner'),
+    promoTitle: $('promo-title'),
+    promoDesc: $('promo-desc'),
+    dashCurriculumBadge: $('dash-curriculum-badge'),
+    dashCurriculumBar: $('dash-curriculum-bar'),
   };
 
   // ─── State ───
   let quotes = [];
   let mode = null;          // 'record' | 'race' | 'online'
-  let currentUser = null;   // { id, google_id, username, avatar_url, mmr }
+  let currentUser = null;   // { id, google_id, username, avatar_url, mmr, current_tier }
   let googleClientId = '';
   let currentRoomCode = '';
   let isCustomMatch = false;
@@ -133,6 +142,10 @@
   let wpmHistory = [];      // [{ ms, wpm }]
   let isMuted = false;
   let isExploding = false;
+
+  // Phase 4: Progression System State
+  let selectedTier = 1;
+  let userTier = 1;
 
   // Ghost data
   let ghostTimeline = [];   // [{ charIndex, ms, correct }]
@@ -508,6 +521,70 @@
     }
   }
 
+  // ─── Phase 4: Tier Promotion Celebration Fanfare ───
+  function playPromotionFanfare() {
+    if (isMuted) return;
+    ensureAudio();
+    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+    notes.forEach((freq, idx) => {
+      setTimeout(() => {
+        if (!audioCtx) return;
+        const t = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(0.3, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + 0.36);
+      }, idx * 100);
+    });
+  }
+
+  function updateTierUI() {
+    const effectiveTier = (currentUser && currentUser.current_tier) ? currentUser.current_tier : userTier;
+    userTier = effectiveTier;
+
+    if (el.btnTier1) {
+      el.btnTier1.className = 'tier-card' + (selectedTier === 1 ? ' active' : '');
+    }
+    if (el.btnTier2) {
+      const isUnlocked = userTier >= 2;
+      el.btnTier2.className = 'tier-card' + (isUnlocked ? '' : ' locked') + (selectedTier === 2 ? ' active' : '');
+      const statusEl = el.btnTier2.querySelector('.tier-card-status');
+      if (statusEl) statusEl.textContent = isUnlocked ? '🟢 UNLOCKED' : '🔒 LOCKED';
+    }
+    if (el.btnTier3) {
+      const isUnlocked = userTier >= 3;
+      el.btnTier3.className = 'tier-card' + (isUnlocked ? '' : ' locked') + (selectedTier === 3 ? ' active' : '');
+      const statusEl = el.btnTier3.querySelector('.tier-card-status');
+      if (statusEl) statusEl.textContent = isUnlocked ? '🟢 UNLOCKED' : '🔒 LOCKED';
+    }
+
+    if (el.tierCurrentBadge) {
+      const tierTitles = { 1: 'TIER 1 · WARM UP', 2: 'TIER 2 · SYMBOLS', 3: 'TIER 3 · REAL SYNTAX' };
+      el.tierCurrentBadge.textContent = tierTitles[selectedTier] || `TIER ${selectedTier}`;
+    }
+
+    if (el.dashCurriculumBadge && el.dashCurriculumBar) {
+      const progressPercent = userTier === 1 ? 33.3 : userTier === 2 ? 66.6 : 100;
+      const tierTitles = { 1: 'TIER 1 / 3 · WARM UP', 2: 'TIER 2 / 3 · SYMBOLS & OPERATORS', 3: 'TIER 3 / 3 · SYNTAX MASTER' };
+      el.dashCurriculumBadge.textContent = tierTitles[userTier] || `TIER ${userTier} / 3`;
+      el.dashCurriculumBar.style.width = progressPercent + '%';
+    }
+  }
+
+  function showTierPromotionBanner(promotion) {
+    if (!el.tierPromotionBanner || !promotion) return;
+    if (el.promoTitle) el.promoTitle.textContent = promotion.title || `Tier ${promotion.unlockedTier} Unlocked!`;
+    if (el.promoDesc) el.promoDesc.textContent = promotion.desc || `You passed the performance gate and unlocked the next curriculum tier!`;
+    el.tierPromotionBanner.classList.remove('hidden');
+    playPromotionFanfare();
+    updateTierUI();
+  }
+
   // ══════════════════════════════════════════════════════
   // Race Engine & Pac-Man Chomping
   // ══════════════════════════════════════════════════════
@@ -524,8 +601,11 @@
     el.curriculumBadge.textContent = `TIER ${tier} · ${source.toUpperCase()}`;
   }
 
-  function pickParagraph() {
-    const item = quotes[Math.floor(Math.random() * quotes.length)];
+  function pickParagraph(tier = null) {
+    const targetTier = tier || selectedTier || 1;
+    const filtered = quotes.filter(q => (q.tier || 1) === targetTier);
+    const pool = filtered.length > 0 ? filtered : quotes;
+    const item = pool[Math.floor(Math.random() * pool.length)];
     updateCurriculumBadge(item);
     return item.text;
   }
@@ -795,6 +875,41 @@
       } else {
         showResults(stats, ghostData.stats);
       }
+
+      // Phase 4: Solo Practice Tier Progression Evaluation
+      if (mode === 'record' || mode === 'race') {
+        if (currentUser && !currentUser.isGuest) {
+          fetch('/api/practice/finish', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: currentUser.id,
+              stats,
+              tier: selectedTier
+            })
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && data.tierPromotion) {
+              currentUser = data.user || currentUser;
+              currentUser.current_tier = data.tierPromotion.unlockedTier;
+              localStorage.setItem('syntax_user', JSON.stringify(currentUser));
+              showTierPromotionBanner(data.tierPromotion);
+            }
+          })
+          .catch(err => console.error('Practice finish error:', err));
+        } else {
+          // Guest mode local promotion check
+          const tax = stats.errorTaxonomy || {};
+          if (selectedTier === 1 && stats.accuracy >= 93 && stats.wpm >= 30 && userTier < 2) {
+            userTier = 2;
+            showTierPromotionBanner({ unlockedTier: 2, title: 'TIER 2 · SYMBOLS & OPERATORS', desc: 'Unlocked brackets, operators, colons & assignments!' });
+          } else if (selectedTier === 2 && stats.accuracy >= 90 && stats.wpm >= 40 && (tax.symbol || 0) <= 3 && userTier < 3) {
+            userTier = 3;
+            showTierPromotionBanner({ unlockedTier: 3, title: 'TIER 3 · REAL MULTI-LINE SYNTAX', desc: 'Unlocked multi-line JS, Python, SQL, Rust & C++!' });
+          }
+        }
+      }
     });
   }
 
@@ -813,6 +928,7 @@
       el.userMmrBadge.textContent = '500 MMR (Unranked)';
       el.profilePill.classList.remove('logged-in');
     }
+    updateTierUI();
   }
 
   async function handleGoogleResponse(res) {
@@ -1253,6 +1369,9 @@
             localStorage.setItem('syntax_user', JSON.stringify(currentUser));
             updateProfileUI();
           }
+          if (data.tierPromotion) {
+            showTierPromotionBanner(data.tierPromotion);
+          }
           if (data.won) playVictoryFanfare();
           else playDefeatChime();
 
@@ -1482,6 +1601,7 @@
   // ══════════════════════════════════════════════════════
   function showResults(playerStats, ghostStats) {
     switchScreen('results');
+    if (el.tierPromotionBanner) el.tierPromotionBanner.classList.add('hidden');
 
     el.statPWpm.textContent = playerStats.wpm;
     el.statPAcc.textContent = playerStats.accuracy + '%';
@@ -1789,6 +1909,25 @@
   el.btnBackLobby.addEventListener('click', () => { updateLobbyState(); switchScreen('lobby'); });
   el.btnAudioToggle.addEventListener('click', toggleAudio);
   el.btnCopyCard.addEventListener('click', copyResultCard);
+
+  // Phase 4: Tier Selector Event Listeners
+  if (el.btnTier1) el.btnTier1.addEventListener('click', () => { selectedTier = 1; updateTierUI(); });
+  if (el.btnTier2) el.btnTier2.addEventListener('click', () => {
+    if (userTier >= 2) {
+      selectedTier = 2;
+      updateTierUI();
+    } else {
+      alert('🔒 Tier 2 is locked! Complete a Tier 1 run with 93%+ Accuracy & 30+ WPM to unlock.');
+    }
+  });
+  if (el.btnTier3) el.btnTier3.addEventListener('click', () => {
+    if (userTier >= 3) {
+      selectedTier = 3;
+      updateTierUI();
+    } else {
+      alert('🔒 Tier 3 is locked! Complete a Tier 2 run with 90%+ Accuracy, 40+ WPM, and ≤3 Symbol Errors to unlock.');
+    }
+  });
 
   // Keyboard Shortcuts
   document.addEventListener('keydown', e => {

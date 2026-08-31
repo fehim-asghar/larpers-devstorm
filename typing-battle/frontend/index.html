@@ -121,6 +121,16 @@
               </div>
             </div>
 
+            <div class="profile-curriculum-box">
+              <div class="curriculum-header">
+                <span class="curriculum-title">🎓 CURRICULUM LADDER PROGRESS</span>
+                <span id="dash-curriculum-badge" class="curriculum-badge">TIER 1 / 3 · WARM UP</span>
+              </div>
+              <div class="curriculum-bar-track">
+                <div id="dash-curriculum-bar" class="curriculum-bar-fill" style="width: 33.3%;"></div>
+              </div>
+            </div>
+
             <div class="profile-history-section">
               <h4 class="profile-history-title">📜 YOUR RECENT BATTLES</h4>
               <div id="profile-match-history-list" class="match-history-list">
@@ -135,6 +145,33 @@
     <div class="lobby-content">
       <h1 class="logo">SYNTAX<span class="logo-slash">//</span><span class="logo-ghost">RUSH</span></h1>
       <p class="tagline">Competitive Browser Speed Duel &middot; Race the Ghost</p>
+
+      <!-- Phase 4: Curriculum Ladder & Tier Selector -->
+      <div class="tier-selector-panel" id="tier-selector-panel">
+        <div class="tier-selector-header">
+          <span class="tier-section-title">⚡ CURRICULUM LADDER</span>
+          <span class="tier-current-badge" id="tier-current-badge">TIER 1 · WARM UP</span>
+        </div>
+        <div class="tier-options-grid">
+          <button class="tier-card active" id="btn-tier-1" data-tier="1">
+            <div class="tier-card-status">🟢 UNLOCKED</div>
+            <div class="tier-card-title">Tier 1 · Warm Up</div>
+            <div class="tier-card-desc">English baseline & home row flow</div>
+          </button>
+          <button class="tier-card locked" id="btn-tier-2" data-tier="2">
+            <div class="tier-card-status">🔒 LOCKED</div>
+            <div class="tier-card-title">Tier 2 · Symbols & Operators</div>
+            <div class="tier-card-desc">Brackets {}, (), ;, :, =, ternary</div>
+            <div class="tier-card-gate">Gate: 93%+ Acc & 30+ WPM on Tier 1</div>
+          </button>
+          <button class="tier-card locked" id="btn-tier-3" data-tier="3">
+            <div class="tier-card-status">🔒 LOCKED</div>
+            <div class="tier-card-title">Tier 3 · Real Multi-line Syntax</div>
+            <div class="tier-card-desc">JS, Python, SQL, Rust, C++ code</div>
+            <div class="tier-card-gate">Gate: 90%+ Acc, 40+ WPM, ≤3 Symbol Errs on Tier 2</div>
+          </button>
+        </div>
+      </div>
 
       <div class="lobby-actions">
         <button id="btn-set-ghost" class="btn btn-primary">
@@ -353,6 +390,16 @@
       <div class="results-header">
         <h2 id="result-banner" class="result-banner">GHOST RECORDED</h2>
         <div id="speed-tier-badge" class="speed-tier-badge">⚡ KEYBOARD ATHLETE</div>
+      </div>
+
+      <!-- Phase 4: Tier Promotion Celebration Banner -->
+      <div id="tier-promotion-banner" class="tier-promotion-banner hidden">
+        <div class="promo-icon">🎉</div>
+        <div class="promo-text-wrap">
+          <div class="promo-badge">TIER UNLOCKED!</div>
+          <div class="promo-title" id="promo-title">Tier 2 · Symbols & Operators</div>
+          <div class="promo-desc" id="promo-desc">You can now practice and battle with syntax & bracket snippets!</div>
+        </div>
       </div>
 
       <div class="stats-comparison">

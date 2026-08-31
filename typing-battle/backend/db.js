@@ -23,6 +23,7 @@ db.exec(`
     matches_played INTEGER DEFAULT 0,
     matches_won INTEGER DEFAULT 0,
     win_streak INTEGER DEFAULT 0,
+    current_tier INTEGER DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -58,9 +59,14 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_ghost_quote ON ghost_runs(quote_text, wpm DESC);
 `);
 
-// Auto-migration: ensure win_streak column exists on existing DB files
+// Auto-migration: ensure win_streak and current_tier columns exist on existing DB files
 try {
   db.exec(`ALTER TABLE users ADD COLUMN win_streak INTEGER DEFAULT 0;`);
+} catch (e) {
+  // Column already exists
+}
+try {
+  db.exec(`ALTER TABLE users ADD COLUMN current_tier INTEGER DEFAULT 1;`);
 } catch (e) {
   // Column already exists
 }
@@ -77,8 +83,8 @@ const stmts = {
   getUserById: db.prepare('SELECT * FROM users WHERE id = ?'),
   getUserByGoogleId: db.prepare('SELECT * FROM users WHERE google_id = ?'),
   insertUser: db.prepare(`
-    INSERT INTO users (id, google_id, username, avatar_url, mmr, best_wpm, avg_accuracy, win_streak)
-    VALUES (@id, @google_id, @username, @avatar_url, @mmr, @best_wpm, @avg_accuracy, 0)
+    INSERT INTO users (id, google_id, username, avatar_url, mmr, best_wpm, avg_accuracy, win_streak, current_tier)
+    VALUES (@id, @google_id, @username, @avatar_url, @mmr, @best_wpm, @avg_accuracy, 0, @current_tier)
   `),
   updateUserStats: db.prepare(`
     UPDATE users SET
@@ -91,8 +97,14 @@ const stmts = {
       updated_at = CURRENT_TIMESTAMP
     WHERE id = @userId
   `),
+  updateUserTier: db.prepare(`
+    UPDATE users SET
+      current_tier = MAX(current_tier, @tier),
+      updated_at = CURRENT_TIMESTAMP
+    WHERE id = @userId
+  `),
   getLeaderboard: db.prepare(`
-    SELECT id, username, avatar_url, mmr, best_wpm, avg_accuracy, matches_played, matches_won, win_streak
+    SELECT id, username, avatar_url, mmr, best_wpm, avg_accuracy, matches_played, matches_won, win_streak, current_tier
     FROM users
     ORDER BY mmr DESC, best_wpm DESC
     LIMIT ?
@@ -156,7 +168,7 @@ module.exports = {
   getUserByGoogleId(googleId) {
     return stmts.getUserByGoogleId.get(googleId);
   },
-  createGuestUser({ id, username, avatarUrl = null, mmr = 500 }) {
+  createGuestUser({ id, username, avatarUrl = null, mmr = 500, currentTier = 1 }) {
     const existing = stmts.getUserById.get(id);
     if (existing) return existing;
     stmts.insertUser.run({
@@ -166,7 +178,8 @@ module.exports = {
       avatar_url: avatarUrl,
       mmr,
       best_wpm: 0,
-      avg_accuracy: 100.0
+      avg_accuracy: 100.0,
+      current_tier: currentTier || 1
     });
     return stmts.getUserById.get(id);
   },
@@ -188,7 +201,8 @@ module.exports = {
       avatar_url: avatarUrl,
       mmr: 500,
       best_wpm: 0,
-      avg_accuracy: 100.0
+      avg_accuracy: 100.0,
+      current_tier: 1
     });
     return stmts.getUserById.get(id);
   },
@@ -199,6 +213,12 @@ module.exports = {
       wpm: wpm || 0,
       acc: acc || 100.0,
       won: won ? 1 : 0
+    });
+  },
+  updateUserTier(userId, tier) {
+    return stmts.updateUserTier.run({
+      userId,
+      tier: Math.max(1, Math.min(3, parseInt(tier) || 1))
     });
   },
   recordMatch(match) {
