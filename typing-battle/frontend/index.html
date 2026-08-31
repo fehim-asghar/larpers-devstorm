@@ -146,7 +146,32 @@
       <h1 class="logo">SYNTAX<span class="logo-slash">//</span><span class="logo-ghost">RUSH</span></h1>
       <p class="tagline">Competitive Browser Speed Duel &middot; Beat Your Best</p>
 
-      <!-- Phase 4: Curriculum Ladder & Tier Selector -->
+      <div class="lobby-actions">
+        <div class="solo-practice-group" id="solo-practice-group">
+          <button id="btn-solo-practice" class="btn btn-primary">
+            <span class="btn-icon">⌨</span> Solo Practice
+            <kbd>Space</kbd>
+          </button>
+          <div class="solo-dropdown">
+            <button id="btn-set-ghost" class="solo-dropdown-item">
+              <span>🎯</span> New Run <kbd>Space</kbd>
+            </button>
+            <button id="btn-race-ghost" class="solo-dropdown-item" disabled>
+              <span>🔁</span> Beat My Score <kbd>Enter</kbd>
+            </button>
+          </div>
+        </div>
+        <button id="btn-online-duel" class="btn btn-online">
+          <span class="btn-icon">⚔️</span> Ranked 1v1 Duel
+          <kbd>M</kbd>
+        </button>
+        <button id="btn-custom-room" class="btn btn-custom">
+          <span class="btn-icon">🎮</span> Custom Room
+          <kbd>C</kbd>
+        </button>
+      </div>
+
+      <!-- Phase 4: Curriculum Ladder & Tier Selector (Below Main Action Buttons) -->
       <div class="tier-selector-panel" id="tier-selector-panel">
         <div class="tier-selector-header">
           <span class="tier-section-title">⚡ CURRICULUM LADDER</span>
@@ -171,31 +196,6 @@
             <div class="tier-card-gate">Gate: 90%+ Acc, 40+ WPM, ≤3 Symbol Errs on Tier 2</div>
           </button>
         </div>
-      </div>
-
-      <div class="lobby-actions">
-        <div class="solo-practice-group" id="solo-practice-group">
-          <button id="btn-solo-practice" class="btn btn-primary">
-            <span class="btn-icon">⌨</span> Solo Practice
-            <kbd>Space</kbd>
-          </button>
-          <div class="solo-dropdown">
-            <button id="btn-set-ghost" class="solo-dropdown-item">
-              <span>🎯</span> New Run <kbd>Space</kbd>
-            </button>
-            <button id="btn-race-ghost" class="solo-dropdown-item" disabled>
-              <span>🔁</span> Beat My Score <kbd>Enter</kbd>
-            </button>
-          </div>
-        </div>
-        <button id="btn-online-duel" class="btn btn-online">
-          <span class="btn-icon">⚔️</span> Ranked 1v1 Duel
-          <kbd>M</kbd>
-        </button>
-        <button id="btn-custom-room" class="btn btn-custom">
-          <span class="btn-icon">🎮</span> Custom Room
-          <kbd>C</kbd>
-        </button>
       </div>
 
       <!-- Custom Unranked Room Modal -->
