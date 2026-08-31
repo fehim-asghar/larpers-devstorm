@@ -110,20 +110,20 @@ kbd {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 13px;
   max-width: 900px;
-  margin-top: 50px;
+  margin-top: 145px;
 }
 
 /* ─── Hatsune Miku Dual 3D Logo ─── */
 .logo {
   font-family: var(--font-race);
-  font-size: 3.8rem;
+  font-size: 3.3rem;
   font-weight: 400;
-  letter-spacing: 5px;
+  letter-spacing: 4px;
   text-transform: uppercase;
   color: #FFFFFF;
-  line-height: 1.1;
+  line-height: 1.05;
   text-shadow: 
     3px 3px 0px #FF007F,
     6px 6px 0px #003366,
