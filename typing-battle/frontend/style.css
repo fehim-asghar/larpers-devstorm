@@ -991,6 +991,35 @@ kbd {
   border-color: rgba(255, 179, 0, 0.2);
 }
 
+.curriculum-badge {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 5px 14px;
+  border-radius: 20px;
+  background: rgba(255, 179, 0, 0.12);
+  color: #FFB300;
+  border: 1px solid rgba(255, 179, 0, 0.35);
+  box-shadow: 0 0 10px rgba(255, 179, 0, 0.15);
+  letter-spacing: 1px;
+}
+.curriculum-badge.tier-1 {
+  background: rgba(57, 255, 136, 0.12);
+  color: #39FF88;
+  border-color: rgba(57, 255, 136, 0.35);
+}
+.curriculum-badge.tier-2 {
+  background: rgba(0, 242, 254, 0.12);
+  color: #00F2FE;
+  border-color: rgba(0, 242, 254, 0.35);
+}
+.curriculum-badge.tier-3 {
+  background: rgba(255, 0, 127, 0.12);
+  color: #FF007F;
+  border-color: rgba(255, 0, 127, 0.35);
+}
+
 .audio-toggle-btn {
   display: inline-flex;
   align-items: center;
@@ -1056,6 +1085,16 @@ kbd {
   display: inline-block;
   min-width: 0.6em;
   white-space: pre;
+}
+.char.newline {
+  display: inline-block;
+  color: var(--text-dim);
+  opacity: 0.6;
+  font-size: 0.85em;
+  padding: 0 2px;
+}
+.char.newline.current {
+  opacity: 1;
 }
 .char.untyped { color: var(--text-dim); }
 

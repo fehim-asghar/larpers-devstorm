@@ -27,6 +27,7 @@
     countdownNum: $('countdown-num'),
     pauseOverlay: $('pause-overlay'),
     modeBadge: $('mode-badge'),
+    curriculumBadge: $('curriculum-badge'),
     btnAudioToggle: $('btn-audio-toggle'),
     audioToggleIcon: $('audio-toggle-icon'),
     audioToggleText: $('audio-toggle-text'),
@@ -485,8 +486,23 @@
   // ══════════════════════════════════════════════════════
   // Race Engine & Pac-Man Chomping
   // ══════════════════════════════════════════════════════
+  function updateCurriculumBadge(quoteObj) {
+    if (!el.curriculumBadge) return;
+    if (!quoteObj) {
+      el.curriculumBadge.classList.add('hidden');
+      return;
+    }
+    el.curriculumBadge.classList.remove('hidden', 'tier-1', 'tier-2', 'tier-3');
+    const tier = quoteObj.tier || 1;
+    el.curriculumBadge.classList.add(`tier-${tier}`);
+    const source = quoteObj.source || 'Curriculum';
+    el.curriculumBadge.textContent = `TIER ${tier} · ${source.toUpperCase()}`;
+  }
+
   function pickParagraph() {
-    return quotes[Math.floor(Math.random() * quotes.length)].text;
+    const item = quotes[Math.floor(Math.random() * quotes.length)];
+    updateCurriculumBadge(item);
+    return item.text;
   }
 
   function renderText() {
@@ -498,13 +514,19 @@
     for (let i = 0; i < paragraph.length; i++) {
       const span = document.createElement('span');
       const isSpace = paragraph[i] === ' ';
-      span.className = 'char' + (isSpace ? ' space' : '') + (i === 0 ? ' current' : ' untyped');
-      span.textContent = paragraph[i];
+      const isNewline = paragraph[i] === '\n';
+
+      span.className = 'char' + (isSpace ? ' space' : '') + (isNewline ? ' newline' : '') + (i === 0 ? ' current' : ' untyped');
+      span.textContent = isNewline ? '↵\n' : paragraph[i];
       span.dataset.idx = i;
       currentWord.appendChild(span);
 
-      // Start a new word container after every space (unless at end of text)
-      if (isSpace && i < paragraph.length - 1) {
+      // Start a new word container after every space or newline (unless at end of text)
+      if ((isSpace || isNewline) && i < paragraph.length - 1) {
+        if (isNewline) {
+          const br = document.createElement('br');
+          el.textDisplay.appendChild(br);
+        }
         currentWord = document.createElement('span');
         currentWord.className = 'word';
         el.textDisplay.appendChild(currentWord);
@@ -575,25 +597,35 @@
     if (e.key === 'Backspace') {
       if (charIndex > 0) {
         const isCurrSpace = paragraph[charIndex] === ' ';
-        chars[charIndex].className = 'char untyped' + (isCurrSpace ? ' space' : '');
+        const isCurrNewline = paragraph[charIndex] === '\n';
+        chars[charIndex].className = 'char untyped' + (isCurrSpace ? ' space' : '') + (isCurrNewline ? ' newline' : '');
         charIndex--;
         const isPrevSpace = paragraph[charIndex] === ' ';
-        chars[charIndex].className = 'char current' + (isPrevSpace ? ' space' : '');
+        const isPrevNewline = paragraph[charIndex] === '\n';
+        chars[charIndex].className = 'char current' + (isPrevSpace ? ' space' : '') + (isPrevNewline ? ' newline' : '');
       }
       return;
     }
 
-    if (e.key.length !== 1) return;
+    // Support Enter key for newline characters
+    let inputKey = e.key;
+    if (e.key === 'Enter' && paragraph[charIndex] === '\n') {
+      inputKey = '\n';
+    } else if (e.key.length !== 1) {
+      return;
+    }
+
     e.preventDefault();
     totalTyped++;
 
     const expected = paragraph[charIndex];
-    const correct = e.key === expected;
+    const correct = inputKey === expected;
     const currentWpm = calcWPM();
     const isCharSpace = paragraph[charIndex] === ' ';
+    const isCharNewline = paragraph[charIndex] === '\n';
 
     if (correct) {
-      chars[charIndex].className = 'char correct' + (isCharSpace ? ' space' : '');
+      chars[charIndex].className = 'char correct' + (isCharSpace ? ' space' : '') + (isCharNewline ? ' newline' : '');
       streak++;
       playThock(currentWpm);
 
@@ -614,7 +646,8 @@
 
       if (charIndex < paragraph.length) {
         const isNextSpace = paragraph[charIndex] === ' ';
-        chars[charIndex].className = 'char current' + (isNextSpace ? ' space' : '');
+        const isNextNewline = paragraph[charIndex] === '\n';
+        chars[charIndex].className = 'char current' + (isNextSpace ? ' space' : '') + (isNextNewline ? ' newline' : '');
       }
 
       // Finish reached? Trigger Minesweeper explosion!
@@ -629,7 +662,7 @@
       playError();
 
       // Block advance: flash red shake on current char without incrementing charIndex
-      chars[charIndex].className = 'char current' + (isCharSpace ? ' space' : '');
+      chars[charIndex].className = 'char current' + (isCharSpace ? ' space' : '') + (isCharNewline ? ' newline' : '');
       chars[charIndex].classList.remove('wrong');
       void chars[charIndex].offsetWidth; // force reflow so repeated typos re-trigger shake
       chars[charIndex].classList.add('wrong');
@@ -1090,6 +1123,8 @@
           el.matchmakingModal.classList.add('hidden');
           el.customRoomModal.classList.add('hidden');
           paragraph = data.paragraph;
+          const foundQuote = quotes.find(q => q.text === data.paragraph) || { text: data.paragraph, source: '1v1 Duel', tier: 2 };
+          updateCurriculumBadge(foundQuote);
           const rival = data.opponentUser || { username: 'RIVAL RACER', avatar_url: 'miku.gif', mmr: 500, best_wpm: 60 };
           showVsClashScreen(rival, () => {
             startOnlineRace();
