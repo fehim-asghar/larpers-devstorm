@@ -3,6 +3,8 @@ const fs = require('fs');
 const http = require('http');
 const crypto = require('crypto');
 const express = require('express');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const { WebSocketServer } = require('ws');
 
 // Load .env if present
@@ -54,9 +56,7 @@ try {
 }
 
 function getRandomQuote(tier = 1) {
-  try {
-    quotes = JSON.parse(fs.readFileSync(path.join(__dirname, '../frontend/quotes.json'), 'utf8'));
-  } catch (e) {}
+  // ponytail: quotes loaded once at startup (L49-54), no re-read per call
   const targetTier = Math.max(1, Math.min(3, parseInt(tier) || 1));
   const filtered = quotes.filter(q => (q.tier || 1) === targetTier);
   const pool = filtered.length > 0 ? filtered : quotes;
@@ -86,7 +86,37 @@ function checkTierPromotion(user, stats, activeTier) {
   return null;
 }
 
-app.use(express.json());
+// ─── Security Middleware ───
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://apis.google.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "wss:", "ws:"],
+      frameSrc: ["https://accounts.google.com"]
+    }
+  }
+}));
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 60, // 60 requests per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, slow down.' }
+});
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10, // 10 auth attempts per minute per IP
+  message: { error: 'Too many auth attempts, try again later.' }
+});
+
+app.use('/api/', apiLimiter);
+app.use('/api/auth/', authLimiter);
+app.use(express.json({ limit: '16kb' }));
 
 // ─── Auth API ───
 app.get('/api/auth/config', (req, res) => {
@@ -139,7 +169,11 @@ app.post('/api/auth/google', async (req, res) => {
 });
 
 app.get('/api/profile/me', (req, res) => {
-  const userId = req.query.userId;
+  // Authenticated: derive userId from session token, not query param
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const authUser = getUserFromSessionToken(token);
+  // Fallback to query param for backward compat with leaderboard lookups (public data only)
+  const userId = authUser ? authUser.id : req.query.userId;
   if (!userId) return res.status(400).json({ error: 'Missing userId' });
   const user = db.getUserById(userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
@@ -169,17 +203,23 @@ app.get('/api/matches/recent', (req, res) => {
   }
 });
 
-// Phase 4: Solo Practice Tier Finish & Evaluation Endpoint
+// Phase 4: Solo Practice Tier Finish & Evaluation Endpoint (Authenticated)
 app.post('/api/practice/finish', (req, res) => {
   try {
-    const { userId, stats, tier } = req.body;
-    if (!userId || !stats) return res.status(400).json({ error: 'Missing userId or stats' });
-    const user = db.getUserById(userId);
+    // Derive userId from session token — never trust client-supplied userId
+    const token = (req.headers.authorization || '').replace('Bearer ', '');
+    const authUser = getUserFromSessionToken(token);
+    if (!authUser) return res.status(401).json({ error: 'Authentication required for tier progression.' });
+
+    const { stats, tier } = req.body;
+    if (!stats) return res.status(400).json({ error: 'Missing stats' });
+
+    const user = db.getUserById(authUser.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const activeTier = parseInt(tier) || 1;
     const tierPromotion = checkTierPromotion(user, stats, activeTier);
-    const updatedUser = db.getUserById(userId);
+    const updatedUser = db.getUserById(authUser.id);
     return res.json({ success: true, tierPromotion, user: updatedUser });
   } catch (err) {
     console.error('Practice finish error:', err);
@@ -191,7 +231,21 @@ app.post('/api/practice/finish', (req, res) => {
 app.use(express.static(path.join(__dirname, '../frontend'), { etag: false, maxAge: 0 }));
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
+
+// WebSocket with origin verification
+const ALLOWED_ORIGINS = new Set([
+  'https://syntax-rush.onrender.com',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000'
+]);
+const wss = new WebSocketServer({
+  server,
+  verifyClient: ({ origin }) => {
+    // Allow connections with no origin (e.g. server-to-server, native clients)
+    if (!origin) return true;
+    return ALLOWED_ORIGINS.has(origin);
+  }
+});
 
 let rankedQueue = []; // [{ ws, user, joinedAt }]
 let customRooms = new Map(); // roomCode -> { hostWs, guestWs, roomCode, hostUser, guestUser, paragraph }
@@ -226,7 +280,42 @@ function computeMmrDeltas(winnerUser, loserUser, winnerStats, loserStats) {
   return { winnerDelta, loserDelta, bonuses };
 }
 
+// ─── WebSocket Heartbeat (detect dead sockets) ───
+const WS_PING_INTERVAL = 30000; // 30s
+setInterval(() => {
+  wss.clients.forEach(ws => {
+    if (ws.isAlive === false) return ws.terminate();
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, WS_PING_INTERVAL);
+
+// ─── Periodic Stale Match/Room Cleanup (every 60s) ───
+const STALE_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, session] of activeMatches) {
+    if (session.isResolved || (session.matchStartSentAt && now - session.matchStartSentAt > STALE_TIMEOUT)) {
+      activeMatches.delete(id);
+    }
+  }
+  for (const [code, room] of customRooms) {
+    const hostDead = !room.hostWs || room.hostWs.readyState !== 1;
+    const guestDead = !room.guestWs || room.guestWs.readyState !== 1;
+    if (hostDead && guestDead) customRooms.delete(code);
+  }
+  // Clean expired session tokens
+  for (const [token, session] of sessionTokens) {
+    if (now > session.expiresAt) sessionTokens.delete(token);
+  }
+}, 60000);
+
 wss.on('connection', (ws) => {
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+  ws.msgCount = 0;
+  ws.msgWindowStart = Date.now();
+
   ws.opponent = null;
   ws.matchSession = null;
   ws.user = {
@@ -240,6 +329,15 @@ wss.on('connection', (ws) => {
 
   ws.on('message', (msgStr) => {
     try {
+      // Per-socket message throttle: max 200 msgs/sec (generous for typing)
+      const now = Date.now();
+      if (now - ws.msgWindowStart > 1000) {
+        ws.msgCount = 0;
+        ws.msgWindowStart = now;
+      }
+      ws.msgCount++;
+      if (ws.msgCount > 200) return; // silently drop flood
+
       const msg = JSON.parse(msgStr);
 
       // ─── 0. Session Authentication ───

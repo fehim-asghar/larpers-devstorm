@@ -879,11 +879,14 @@
       // Phase 4: Solo Practice Tier Progression Evaluation
       if (mode === 'record' || mode === 'race') {
         if (currentUser && !currentUser.isGuest) {
+          const authToken = localStorage.getItem('syntax_token');
           fetch('/api/practice/finish', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + (authToken || '')
+            },
             body: JSON.stringify({
-              userId: currentUser.id,
               stats,
               tier: selectedTier
             })
