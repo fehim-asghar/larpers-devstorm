@@ -371,35 +371,71 @@
     880.00, 783.99, 659.25, 523.25, 587.33, 659.25, 587.33, 523.25
   ];
 
-  function startLobbyBGM() {
-    if (isMuted || bgmInterval) return;
-    ensureAudio();
-    bgmNoteIndex = 0;
-    bgmInterval = setInterval(() => {
-      if (isMuted || !screens.lobby.classList.contains('active')) {
-        stopLobbyBGM();
-        return;
+  let popipoBuffer = null;
+  let popipoSource = null;
+  let popipoGain = null;
+  let isPopipoPlaying = false;
+
+  async function preloadPopipoAudio() {
+    try {
+      const res = await fetch('popipo.mp3');
+      const arrayBuf = await res.arrayBuffer();
+      ensureAudio();
+      popipoBuffer = await audioCtx.decodeAudioData(arrayBuf);
+      console.log('🎵 Popipo audio buffer decoded successfully.');
+      if (screens.lobby.classList.contains('active') && !isMuted) {
+        startLobbyBGM();
       }
-      try {
-        const t = audioCtx.currentTime;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.value = bgmMelody[bgmNoteIndex % bgmMelody.length];
-        gain.gain.setValueAtTime(0.04, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-        osc.connect(gain).connect(audioCtx.destination);
-        osc.start(t);
-        osc.stop(t + 0.13);
-        bgmNoteIndex++;
-      } catch (e) { }
-    }, 180);
+    } catch (e) {
+      console.warn('Could not load popipo.mp3:', e);
+    }
+  }
+
+  function startLobbyBGM() {
+    if (isMuted || isPopipoPlaying) return;
+    ensureAudio();
+    if (!popipoBuffer) {
+      preloadPopipoAudio();
+      return;
+    }
+    try {
+      popipoSource = audioCtx.createBufferSource();
+      popipoSource.buffer = popipoBuffer;
+      popipoSource.loop = true;
+      // Precise beat-aligned loop measure from 49.37s to 57.60s (140 BPM grid)
+      popipoSource.loopStart = 49.371;
+      popipoSource.loopEnd = 57.600;
+
+      popipoGain = audioCtx.createGain();
+      popipoGain.gain.setValueAtTime(0.001, audioCtx.currentTime);
+      popipoGain.gain.exponentialRampToValueAtTime(0.30, audioCtx.currentTime + 0.6); // Smooth 600ms fade in
+
+      popipoSource.connect(popipoGain);
+      popipoGain.connect(audioCtx.destination);
+
+      popipoSource.start(0, 49.371);
+      isPopipoPlaying = true;
+    } catch (e) {
+      console.warn('Error starting Popipo BGM:', e);
+    }
   }
 
   function stopLobbyBGM() {
-    if (bgmInterval) {
-      clearInterval(bgmInterval);
-      bgmInterval = null;
+    if (!isPopipoPlaying || !popipoSource) return;
+    try {
+      if (popipoGain) {
+        popipoGain.gain.setValueAtTime(popipoGain.gain.value, audioCtx.currentTime);
+        popipoGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3); // Smooth 300ms fade out
+      }
+      setTimeout(() => {
+        if (popipoSource) {
+          try { popipoSource.stop(); } catch (e) {}
+          popipoSource = null;
+        }
+        isPopipoPlaying = false;
+      }, 300);
+    } catch (e) {
+      isPopipoPlaying = false;
     }
   }
 
@@ -2036,6 +2072,8 @@
     }
     updateLobbyState();
 
+    preloadPopipoAudio();
+
     // Auto-join if ?room=CODE in URL
     const urlParams = new URLSearchParams(window.location.search);
     const roomParam = urlParams.get('room');
@@ -2046,6 +2084,17 @@
       joinCustomRoom(roomParam);
     }
   }
+
+  // Start Lobby BGM on first user gesture (satisfies browser autoplay policy)
+  const onFirstInteraction = () => {
+    document.removeEventListener('click', onFirstInteraction);
+    document.removeEventListener('keydown', onFirstInteraction);
+    if (screens.lobby.classList.contains('active') && !isMuted) {
+      startLobbyBGM();
+    }
+  };
+  document.addEventListener('click', onFirstInteraction);
+  document.addEventListener('keydown', onFirstInteraction);
 
   init();
 })();
