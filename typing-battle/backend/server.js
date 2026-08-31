@@ -202,6 +202,25 @@ app.get('/api/matches/recent', (req, res) => {
   }
 });
 
+// Admin / Server Stats Overview (Total users, matches, live connections)
+app.get('/api/stats', (req, res) => {
+  try {
+    const dbStats = db.getStats();
+    return res.json({
+      success: true,
+      totalRegisteredUsers: dbStats.totalUsers,
+      totalMatchesPlayed: dbStats.totalMatches,
+      activeLiveSockets: wss.clients ? wss.clients.size : 0,
+      activeRooms: customRooms.size,
+      rankedQueueSize: rankedQueue.length,
+      recentRegisteredUsers: dbStats.recentUsers
+    });
+  } catch (err) {
+    console.error('Stats error:', err);
+    return res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
 // Phase 4: Solo Practice Tier Finish & Evaluation Endpoint (Authenticated)
 app.post('/api/practice/finish', (req, res) => {
   try {

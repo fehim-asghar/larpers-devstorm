@@ -240,5 +240,11 @@ module.exports = {
   },
   getBestGhost(quoteText) {
     return stmts.getBestGhost.get(quoteText);
+  },
+  getStats() {
+    const totalUsers = db.prepare("SELECT COUNT(*) as count FROM users WHERE id NOT LIKE 'guest_%'").get().count;
+    const totalMatches = db.prepare("SELECT COUNT(*) as count FROM matches").get().count;
+    const recentUsers = db.prepare("SELECT id, username, avatar_url, mmr, current_tier, created_at FROM users WHERE id NOT LIKE 'guest_%' ORDER BY created_at DESC LIMIT 10").all();
+    return { totalUsers, totalMatches, recentUsers };
   }
 };
