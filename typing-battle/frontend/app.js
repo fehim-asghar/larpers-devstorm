@@ -1213,10 +1213,6 @@
     startTime = performance.now();
     timerRAF = requestAnimationFrame(timerTick);
 
-    if (ws && ws.readyState === 1) {
-      ws.send(JSON.stringify({ type: 'RACE_READY' }));
-    }
-
     el.hiddenInput.value = '';
     el.hiddenInput.focus();
     el.hiddenInput.addEventListener('keydown', handleKeystroke);

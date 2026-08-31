@@ -258,12 +258,16 @@ wss.on('connection', (ws) => {
           p2: room.guestWs,
           paragraph: room.paragraph,
           matchStartSentAt: now,
-          startTime: null, // Anchored when RACE_READY is received
           p1Stats: null,
           p2Stats: null,
           isResolved: false,
           isRanked: false
         };
+
+        room.hostWs.firstKeyAt = null;
+        room.hostWs.lastKeyAt = null;
+        room.guestWs.firstKeyAt = null;
+        room.guestWs.lastKeyAt = null;
 
         room.hostWs.matchSession = session;
         room.guestWs.matchSession = session;
@@ -331,12 +335,17 @@ wss.on('connection', (ws) => {
             p2,
             paragraph,
             matchStartSentAt: matchNow,
-            startTime: null, // Anchored when RACE_READY is received
             p1Stats: null,
             p2Stats: null,
             isResolved: false,
             isRanked: true
           };
+
+          p1.firstKeyAt = null;
+          p1.lastKeyAt = null;
+          p2.firstKeyAt = null;
+          p2.lastKeyAt = null;
+
           p1.matchSession = session;
           p2.matchSession = session;
           activeMatches.set(matchId, session);
@@ -354,52 +363,58 @@ wss.on('connection', (ws) => {
         rankedQueue = rankedQueue.filter(p => p.ws !== ws);
       }
 
-      // ─── 4. Race Ready Sync (Starts Race Timing Baseline) ───
-      if (msg.type === 'RACE_READY') {
-        if (ws.matchSession && !ws.matchSession.startTime) {
-          ws.matchSession.startTime = Date.now();
-        }
-        return;
-      }
-
-      // ─── 5. Keystroke Progress Relay (<30ms) ───
+      // ─── 4. Continuous Keystroke Cadence Telemetry Stream (<30ms) ───
       if (msg.type === 'PROGRESS') {
+        const now = Date.now();
+        const charIdx = parseInt(msg.charIndex) || 0;
+        const quoteLen = (ws.matchSession && ws.matchSession.paragraph) ? ws.matchSession.paragraph.length : 100;
+
+        // Record arrival timestamp of the first keystroke
+        if (charIdx > 0 && !ws.firstKeyAt) {
+          ws.firstKeyAt = now;
+        }
+
+        // Record arrival timestamp when the final character is reached
+        if (charIdx >= quoteLen && !ws.lastKeyAt) {
+          ws.lastKeyAt = now;
+        }
+
         if (ws.opponent && ws.opponent.readyState === 1) {
           ws.opponent.send(JSON.stringify({
             type: 'OPPONENT_PROGRESS',
-            charIndex: msg.charIndex,
+            charIndex: charIdx,
             wpm: msg.wpm
           }));
         }
       }
 
-      // ─── 6. Race Finish & Resolution (Server-Authoritative Validation) ───
+      // ─── 5. Race Finish & Resolution (Cadence Stream Anti-Cheat) ───
       if (msg.type === 'FINISH') {
         const session = ws.matchSession;
         if (!session) return;
 
-        // Accurate Server-Side Timing: anchored to RACE_READY or fallback with 1800ms clash screen offset
         const now = Date.now();
-        const effectiveStartTime = session.startTime || ((session.matchStartSentAt || now) + 1800);
-        const serverElapsedMs = Math.max(300, now - effectiveStartTime);
+        if (!ws.lastKeyAt) ws.lastKeyAt = now;
+        if (!ws.firstKeyAt) ws.firstKeyAt = (session.matchStartSentAt || now) + 1800;
+
         const quoteLen = session.paragraph ? session.paragraph.length : 100;
-        const actualServerWpm = Math.round(((quoteLen / 5) / (serverElapsedMs / 60000)));
-        const maxAllowedWpm = Math.min(240, actualServerWpm + 25);
+        let measuredDurationMs = Math.max(300, ws.lastKeyAt - ws.firstKeyAt);
 
-        let claimedWpm = parseInt(msg.stats?.wpm) || 0;
-        let claimedAcc = Math.min(100, Math.max(0, parseInt(msg.stats?.accuracy) || 0));
-        let claimedTimeMs = parseInt(msg.stats?.timeMs) || serverElapsedMs;
-
-        if (claimedWpm > maxAllowedWpm || claimedTimeMs < (serverElapsedMs - 2500) || serverElapsedMs < 1000) {
-          console.warn(`[Anti-Cheat] Sanitized stats for user ${ws.user?.id}: claimed ${claimedWpm} WPM in ${claimedTimeMs}ms (server elapsed: ${serverElapsedMs}ms, clamped to ${Math.min(claimedWpm, maxAllowedWpm)} WPM)`);
-          claimedWpm = Math.min(claimedWpm, maxAllowedWpm);
-          claimedTimeMs = serverElapsedMs;
+        // Physiological human limit: minimum 35ms per character (~280 WPM physical ceiling)
+        const minHumanDuration = quoteLen * 35;
+        if (measuredDurationMs < minHumanDuration) {
+          console.warn(`[Anti-Cheat] Burst cadence flagged for user ${ws.user?.id}: ${measuredDurationMs}ms for ${quoteLen} chars (clamped to min physical duration: ${minHumanDuration}ms)`);
+          measuredDurationMs = minHumanDuration;
         }
 
+        // 100% Server-Derived True WPM
+        const serverDerivedWpm = Math.min(240, Math.round(((quoteLen / 5) / (measuredDurationMs / 60000))));
+        let claimedAcc = Math.min(100, Math.max(0, parseInt(msg.stats?.accuracy) || 0));
+
         const sanitizedStats = {
-          wpm: claimedWpm,
+          wpm: serverDerivedWpm,
           accuracy: claimedAcc,
-          timeMs: claimedTimeMs
+          timeMs: measuredDurationMs
         };
 
         if (ws.opponent && ws.opponent.readyState === 1) {
