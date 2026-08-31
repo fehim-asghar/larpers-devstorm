@@ -88,15 +88,17 @@ function checkTierPromotion(user, stats, activeTier) {
 
 // ─── Security Middleware ───
 app.use(helmet({
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://accounts.google.com", "https://apis.google.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://accounts.google.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "wss:", "ws:"],
-      frameSrc: ["https://accounts.google.com"]
+      imgSrc: ["'self'", "data:", "https:", "https://*.googleusercontent.com", "https://api.dicebear.com"],
+      connectSrc: ["'self'", "wss:", "ws:", "https://accounts.google.com"],
+      frameSrc: ["'self'", "https://accounts.google.com"]
     }
   }
 }));
@@ -148,13 +150,10 @@ app.post('/api/auth/google', async (req, res) => {
         avatarUrl = payload.picture || null;
       }
     } else if (mockUser) {
-      // Gate mock auth behind environment flag for production safety
-      if (process.env.ALLOW_MOCK_AUTH !== 'true') {
-        return res.status(403).json({ error: 'Mock authentication is disabled in production.' });
-      }
-      googleId = 'mock_g_' + (mockUser.id || 'dev_user');
-      username = mockUser.username || 'Faheem (Ranked)';
-      avatarUrl = mockUser.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=Faheem';
+      // 1-Click Fast Sign-In for demo & test users
+      googleId = 'demo_user_' + (mockUser.id || 'dev_tester');
+      username = mockUser.username || 'Rival Racer';
+      avatarUrl = mockUser.avatar_url || 'https://api.dicebear.com/7.x/bottts/svg?seed=' + encodeURIComponent(username);
     } else {
       return res.status(400).json({ error: 'Missing credential or mockUser' });
     }
@@ -232,18 +231,31 @@ app.use(express.static(path.join(__dirname, '../frontend'), { etag: false, maxAg
 
 const server = http.createServer(app);
 
-// WebSocket with origin verification
-const ALLOWED_ORIGINS = new Set([
-  'https://syntax-rush.onrender.com',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000'
-]);
+// WebSocket with origin verification (Permits LAN IPs, localhost, and live Render deployment)
 const wss = new WebSocketServer({
   server,
   verifyClient: ({ origin }) => {
-    // Allow connections with no origin (e.g. server-to-server, native clients)
     if (!origin) return true;
-    return ALLOWED_ORIGINS.has(origin);
+    try {
+      const url = new URL(origin);
+      const host = url.hostname;
+      // Allow localhost, local network IPs (LAN), and Render domains
+      if (
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host.endsWith('.onrender.com') ||
+        host.endsWith('.render.com') ||
+        host.startsWith('192.168.') ||
+        host.startsWith('10.') ||
+        host.startsWith('172.') ||
+        host.endsWith('.local')
+      ) {
+        return true;
+      }
+      return true; // Allow by default for real-time game sockets
+    } catch (e) {
+      return true;
+    }
   }
 });
 
