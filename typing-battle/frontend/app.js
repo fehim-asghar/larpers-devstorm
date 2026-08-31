@@ -82,9 +82,21 @@
     leaderboardTbody: $('leaderboard-tbody'),
     tabLeaderboardRankings: $('tab-leaderboard-rankings'),
     tabLeaderboardHistory: $('tab-leaderboard-history'),
+    tabLeaderboardProfile: $('tab-leaderboard-profile'),
     viewLeaderboardRankings: $('view-leaderboard-rankings'),
     viewLeaderboardHistory: $('view-leaderboard-history'),
+    viewLeaderboardProfile: $('view-leaderboard-profile'),
     matchHistoryList: $('match-history-list'),
+    profileMatchHistoryList: $('profile-match-history-list'),
+    dashUserAvatar: $('dash-user-avatar'),
+    dashUserName: $('dash-user-name'),
+    dashDivisionBadge: $('dash-division-badge'),
+    dashUserMmr: $('dash-user-mmr'),
+    dashBestWpm: $('dash-best-wpm'),
+    dashWinRate: $('dash-win-rate'),
+    dashWinStreak: $('dash-win-streak'),
+    dashMatchesRecord: $('dash-matches-record'),
+    btnProfileLogout: $('btn-profile-logout'),
     btnCustomRoom: $('btn-custom-room'),
     customRoomModal: $('custom-room-modal'),
     btnCloseCustomRoom: $('btn-close-custom-room'),
@@ -848,36 +860,43 @@
 
   function handleProfilePillClick() {
     if (currentUser) {
-      if (confirm(`Logged in as ${currentUser.username} (${currentUser.mmr} MMR).\n\nDo you want to log out?`)) {
-        currentUser = null;
-        localStorage.removeItem('syntax_user');
-        localStorage.removeItem('syntax_token');
-        if (ws) ws.close();
-        updateProfileUI();
-      }
+      openLeaderboard('profile');
     } else {
       el.authModal.classList.remove('hidden');
     }
   }
 
-  function openLeaderboard() {
+  function handleProfileLogout() {
+    if (confirm(`Do you want to log out of ${currentUser?.username || 'your account'}?`)) {
+      currentUser = null;
+      localStorage.removeItem('syntax_user');
+      localStorage.removeItem('syntax_token');
+      if (ws) ws.close();
+      updateProfileUI();
+      el.leaderboardModal.classList.add('hidden');
+    }
+  }
+
+  function openLeaderboard(tab = 'rankings') {
     el.leaderboardModal.classList.remove('hidden');
-    switchLeaderboardTab('rankings');
+    switchLeaderboardTab(tab);
   }
 
   function switchLeaderboardTab(tab) {
+    el.tabLeaderboardRankings.classList.toggle('active', tab === 'rankings');
+    el.tabLeaderboardHistory.classList.toggle('active', tab === 'history');
+    if (el.tabLeaderboardProfile) el.tabLeaderboardProfile.classList.toggle('active', tab === 'profile');
+
+    el.viewLeaderboardRankings.classList.toggle('hidden', tab !== 'rankings');
+    el.viewLeaderboardHistory.classList.toggle('hidden', tab !== 'history');
+    if (el.viewLeaderboardProfile) el.viewLeaderboardProfile.classList.toggle('hidden', tab !== 'profile');
+
     if (tab === 'rankings') {
-      el.tabLeaderboardRankings.classList.add('active');
-      el.tabLeaderboardHistory.classList.remove('active');
-      el.viewLeaderboardRankings.classList.remove('hidden');
-      el.viewLeaderboardHistory.classList.add('hidden');
       loadLeaderboardRankings();
-    } else {
-      el.tabLeaderboardRankings.classList.remove('active');
-      el.tabLeaderboardHistory.classList.add('active');
-      el.viewLeaderboardRankings.classList.add('hidden');
-      el.viewLeaderboardHistory.classList.remove('hidden');
-      loadMatchHistory();
+    } else if (tab === 'history') {
+      loadMatchHistory(null, el.matchHistoryList);
+    } else if (tab === 'profile') {
+      loadProfileStats();
     }
   }
 
@@ -922,19 +941,20 @@
     }
   }
 
-  async function loadMatchHistory() {
-    el.matchHistoryList.innerHTML = `<div style="text-align:center; padding: 24px; color: var(--text-muted); font-family: var(--font-mono); font-size: 0.82rem;">Loading battle history...</div>`;
+  async function loadMatchHistory(userId = null, targetContainer = el.matchHistoryList) {
+    if (!targetContainer) return;
+    targetContainer.innerHTML = `<div style="text-align:center; padding: 24px; color: var(--text-muted); font-family: var(--font-mono); font-size: 0.82rem;">Loading battle history...</div>`;
     try {
-      const url = currentUser ? `/api/matches/recent?userId=${currentUser.id}` : `/api/matches/recent`;
+      const url = userId ? `/api/matches/recent?userId=${userId}` : `/api/matches/recent`;
       const res = await fetch(url);
       const data = await res.json();
 
       if (!data || data.length === 0) {
-        el.matchHistoryList.innerHTML = `<div style="text-align:center; padding: 24px; color: var(--text-dim); font-family: var(--font-mono); font-size: 0.82rem;">No battle logs recorded yet. Play a match to create history!</div>`;
+        targetContainer.innerHTML = `<div style="text-align:center; padding: 24px; color: var(--text-dim); font-family: var(--font-mono); font-size: 0.82rem;">No battle logs recorded yet. Play a match to create history!</div>`;
         return;
       }
 
-      el.matchHistoryList.innerHTML = data.map(m => {
+      targetContainer.innerHTML = data.map(m => {
         const isP1 = currentUser && currentUser.id === m.p1_id;
         const isWinner = currentUser ? (m.winner_id === currentUser.id) : (m.winner_id === m.p1_id);
         const matchTypeClass = m.is_ranked ? 'ranked' : 'custom';
@@ -983,8 +1003,52 @@
         `;
       }).join('');
     } catch (e) {
-      el.matchHistoryList.innerHTML = `<div style="text-align:center; padding: 24px; color: var(--accent-error); font-family: var(--font-mono); font-size: 0.82rem;">Failed to load match history.</div>`;
+      targetContainer.innerHTML = `<div style="text-align:center; padding: 24px; color: var(--accent-error); font-family: var(--font-mono); font-size: 0.82rem;">Failed to load match history.</div>`;
     }
+  }
+
+  async function loadProfileStats() {
+    if (!currentUser) {
+      el.viewLeaderboardProfile.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px;">
+          <p style="color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 16px;">Sign in to view your career statistics & MMR rankings.</p>
+          <button id="btn-profile-signin" class="btn btn-primary" style="margin: 0 auto;">⚡ Sign In Now</button>
+        </div>
+      `;
+      const btn = $('btn-profile-signin');
+      if (btn) btn.onclick = () => {
+        el.leaderboardModal.classList.add('hidden');
+        el.authModal.classList.remove('hidden');
+      };
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/profile/me?userId=${currentUser.id}`);
+      const data = await res.json();
+      if (data.success && data.user) {
+        currentUser = { ...currentUser, ...data.user };
+        localStorage.setItem('syntax_user', JSON.stringify(currentUser));
+        updateProfileUI();
+      }
+    } catch (e) { }
+
+    const user = currentUser;
+    const matchesPlayed = user.matches_played || 0;
+    const matchesWon = user.matches_won || 0;
+    const winRate = matchesPlayed > 0 ? Math.round((matchesWon / matchesPlayed) * 100) : 0;
+    const tierName = user.mmr >= 700 ? '⚡ APEX' : (user.mmr >= 600 ? '🔥 TITAN' : '🌸 VIPER');
+
+    if (el.dashUserAvatar) el.dashUserAvatar.src = user.avatar_url || 'miku.gif';
+    if (el.dashUserName) el.dashUserName.textContent = user.username || 'Racer';
+    if (el.dashDivisionBadge) el.dashDivisionBadge.textContent = tierName;
+    if (el.dashUserMmr) el.dashUserMmr.textContent = `${user.mmr || 500} MMR`;
+    if (el.dashBestWpm) el.dashBestWpm.textContent = `${user.best_wpm || 0} WPM`;
+    if (el.dashWinRate) el.dashWinRate.textContent = `${winRate}%`;
+    if (el.dashWinStreak) el.dashWinStreak.textContent = `${user.win_streak || 0} 🔥`;
+    if (el.dashMatchesRecord) el.dashMatchesRecord.textContent = `${matchesWon}W / ${matchesPlayed - matchesWon}L`;
+
+    loadMatchHistory(user.id, el.profileMatchHistoryList);
   }
 
   // ══════════════════════════════════════════════════════
@@ -1689,10 +1753,12 @@
   el.inputRoomCode.addEventListener('keydown', e => { if (e.key === 'Enter') joinCustomRoom(); });
   el.btnCancelMatch.addEventListener('click', cancelMatchmaking);
   el.btnDemoSignin.addEventListener('click', handleDemoSignin);
-  el.btnOpenLeaderboard.addEventListener('click', openLeaderboard);
+  el.btnOpenLeaderboard.addEventListener('click', () => openLeaderboard('rankings'));
   el.btnCloseLeaderboard.addEventListener('click', () => el.leaderboardModal.classList.add('hidden'));
   el.tabLeaderboardRankings.addEventListener('click', () => switchLeaderboardTab('rankings'));
   el.tabLeaderboardHistory.addEventListener('click', () => switchLeaderboardTab('history'));
+  if (el.tabLeaderboardProfile) el.tabLeaderboardProfile.addEventListener('click', () => switchLeaderboardTab('profile'));
+  if (el.btnProfileLogout) el.btnProfileLogout.addEventListener('click', handleProfileLogout);
   el.leaderboardModal.addEventListener('click', (e) => {
     if (e.target === el.leaderboardModal) el.leaderboardModal.classList.add('hidden');
   });

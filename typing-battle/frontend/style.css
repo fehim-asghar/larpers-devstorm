@@ -687,7 +687,250 @@ kbd {
   font-family: var(--font-mono);
   font-size: 0.78rem;
   color: var(--text-dim);
-  margin-bottom: 20px;
+  margin-bottom: 12px;
+}
+
+/* ─── Modal Tabs (Leaderboard & Profile) ─── */
+.modal-tabs {
+  display: flex;
+  gap: 8px;
+  background: rgba(14, 19, 34, 0.8);
+  padding: 5px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  margin-bottom: 14px;
+}
+.modal-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-race);
+  font-size: 0.75rem;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: all var(--transition);
+}
+.modal-tab:hover {
+  color: var(--text-primary);
+}
+.modal-tab.active {
+  background: rgba(255, 179, 0, 0.2);
+  color: #FFB300;
+  border: 1px solid rgba(255, 179, 0, 0.5);
+  box-shadow: 0 0 12px rgba(255, 179, 0, 0.25);
+}
+
+.tab-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tab-view.hidden {
+  display: none !important;
+}
+
+/* ─── Match History List ─── */
+.match-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  max-height: 48vh;
+  padding-right: 4px;
+}
+.match-card {
+  background: rgba(14, 19, 34, 0.85);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  transition: all var(--transition);
+}
+.match-card:hover {
+  border-color: rgba(255, 179, 0, 0.4);
+  background: rgba(20, 27, 46, 0.95);
+}
+.match-card-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.match-outcome-badge {
+  font-family: var(--font-race);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 4px;
+  letter-spacing: 1px;
+}
+.match-outcome-badge.win {
+  background: rgba(57, 255, 136, 0.15);
+  color: #39FF88;
+  border: 1px solid rgba(57, 255, 136, 0.35);
+}
+.match-outcome-badge.lose {
+  background: rgba(255, 0, 127, 0.15);
+  color: #FF007F;
+  border: 1px solid rgba(255, 0, 127, 0.35);
+}
+.match-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.match-players {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.match-stats-line {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+.match-card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.match-mmr-badge {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.match-mmr-badge.plus { color: #39FF88; }
+.match-mmr-badge.minus { color: #FF007F; }
+.match-time-ago {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+/* ─── Profile & Stats Dashboard (View 3) ─── */
+.profile-dashboard-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.profile-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(14, 19, 34, 0.9);
+  border: 1px solid rgba(0, 242, 254, 0.3);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  box-shadow: 0 0 20px rgba(0, 242, 254, 0.1);
+}
+.dash-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent-player);
+  box-shadow: 0 0 12px var(--accent-player-glow);
+}
+.dash-user-info {
+  flex: 1;
+  margin-left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dash-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dash-username {
+  font-family: var(--font-race);
+  font-size: 1.1rem;
+  color: #FFFFFF;
+  letter-spacing: 1px;
+}
+.dash-division-badge {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(0, 242, 254, 0.15);
+  color: #00F2FE;
+  border: 1px solid rgba(0, 242, 254, 0.35);
+}
+.dash-mmr-row {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.dash-mmr-val {
+  color: #FFB300;
+  font-weight: 700;
+}
+.btn-profile-logout {
+  background: rgba(255, 0, 127, 0.12);
+  border: 1px solid rgba(255, 0, 127, 0.35);
+  color: #FF007F;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-profile-logout:hover {
+  background: #FF007F;
+  color: #FFFFFF;
+  box-shadow: 0 0 15px rgba(255, 0, 127, 0.5);
+}
+
+.profile-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.metric-tile {
+  background: rgba(14, 19, 34, 0.8);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.metric-label {
+  font-family: var(--font-race);
+  font-size: 0.62rem;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+.metric-val {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.profile-history-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.profile-history-title {
+  font-family: var(--font-race);
+  font-size: 0.72rem;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  text-transform: uppercase;
 }
 
 .leaderboard-table-container {

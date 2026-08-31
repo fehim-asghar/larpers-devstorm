@@ -49,6 +49,7 @@
         <div class="modal-tabs">
           <button id="tab-leaderboard-rankings" class="modal-tab active">🏆 Global Rankings</button>
           <button id="tab-leaderboard-history" class="modal-tab">📜 Match History</button>
+          <button id="tab-leaderboard-profile" class="modal-tab">👤 My Profile</button>
         </div>
         
         <!-- View 1: Global Rankings -->
@@ -78,6 +79,54 @@
           <p class="leaderboard-subtitle">Recent 1v1 Ranked & Custom Battle Logs</p>
           <div id="match-history-list" class="match-history-list">
             <!-- Dynamically populated match cards -->
+          </div>
+        </div>
+
+        <!-- View 3: My Profile & Stats Dashboard -->
+        <div id="view-leaderboard-profile" class="tab-view hidden">
+          <div class="profile-dashboard-card">
+            <div class="profile-hero">
+              <img id="dash-user-avatar" class="dash-avatar" src="miku.gif" alt="Avatar">
+              <div class="dash-user-info">
+                <div class="dash-name-row">
+                  <h3 id="dash-user-name" class="dash-username">Racer</h3>
+                  <span id="dash-division-badge" class="dash-division-badge">🌸 VIPER</span>
+                </div>
+                <div class="dash-mmr-row">
+                  <span class="dash-mmr-label">Rating:</span>
+                  <span id="dash-user-mmr" class="dash-mmr-val">500 MMR</span>
+                </div>
+              </div>
+              <button id="btn-profile-logout" class="btn btn-profile-logout" title="Sign out of account">
+                <span class="btn-icon">🚪</span> Log Out
+              </button>
+            </div>
+
+            <div class="profile-metrics-grid">
+              <div class="metric-tile">
+                <span class="metric-label">⚡ BEST WPM</span>
+                <span id="dash-best-wpm" class="metric-val">0</span>
+              </div>
+              <div class="metric-tile">
+                <span class="metric-label">🎯 WIN RATE</span>
+                <span id="dash-win-rate" class="metric-val">0%</span>
+              </div>
+              <div class="metric-tile">
+                <span class="metric-label">🔥 WIN STREAK</span>
+                <span id="dash-win-streak" class="metric-val">0</span>
+              </div>
+              <div class="metric-tile">
+                <span class="metric-label">🎮 MATCHES (W/L)</span>
+                <span id="dash-matches-record" class="metric-val">0 / 0</span>
+              </div>
+            </div>
+
+            <div class="profile-history-section">
+              <h4 class="profile-history-title">📜 YOUR RECENT BATTLES</h4>
+              <div id="profile-match-history-list" class="match-history-list">
+                <!-- Dynamically populated personal match cards -->
+              </div>
+            </div>
           </div>
         </div>
       </div>
