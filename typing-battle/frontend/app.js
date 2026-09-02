@@ -386,7 +386,7 @@
       ensureAudio();
       popipoBuffer = await audioCtx.decodeAudioData(arrayBuf);
       console.log('🎵 Popipo audio buffer decoded successfully.');
-      if ((screens.lobby.classList.contains('active') || screens.results.classList.contains('active')) && !isMuted) {
+      if (audioCtx.state === 'running' && (screens.lobby.classList.contains('active') || screens.results.classList.contains('active')) && !isMuted) {
         startLobbyBGM(0.88);
       }
     } catch (e) {
@@ -401,6 +401,14 @@
       preloadPopipoAudio();
       return;
     }
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().then(() => {
+        if (!isMuted && (screens.lobby.classList.contains('active') || screens.results.classList.contains('active'))) {
+          startLobbyBGM(playbackRate, targetVolume);
+        }
+      }).catch(() => {});
+      return;
+    }
     if (isPopipoPlaying && popipoSource) {
       try {
         popipoSource.playbackRate.setValueAtTime(playbackRate, audioCtx.currentTime);
@@ -412,6 +420,10 @@
       return;
     }
     try {
+      if (popipoSource) {
+        try { popipoSource.stop(); } catch (e) {}
+        popipoSource = null;
+      }
       popipoSource = audioCtx.createBufferSource();
       popipoSource.buffer = popipoBuffer;
       popipoSource.loop = true;
@@ -2293,17 +2305,26 @@
     }
   }
 
-  // Start Lobby BGM on first user gesture (satisfies browser autoplay policy)
-  const onFirstInteraction = () => {
-    document.removeEventListener('click', onFirstInteraction);
-    document.removeEventListener('keydown', onFirstInteraction);
-    preloadMikuVoiceClips();
-    if ((screens.lobby.classList.contains('active') || screens.results.classList.contains('active')) && !isMuted) {
-      startLobbyBGM(0.88);
+  // Seamless browser autoplay unlocker on first user interaction anywhere
+  const unlockAudioAndPlayBGM = () => {
+    ensureAudio();
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume().then(() => {
+        if ((screens.lobby.classList.contains('active') || screens.results.classList.contains('active')) && !isMuted) {
+          startLobbyBGM(0.88);
+        }
+      }).catch(() => {});
+    } else {
+      if ((screens.lobby.classList.contains('active') || screens.results.classList.contains('active')) && !isMuted) {
+        startLobbyBGM(0.88);
+      }
     }
+    preloadMikuVoiceClips();
   };
-  document.addEventListener('click', onFirstInteraction);
-  document.addEventListener('keydown', onFirstInteraction);
+
+  window.addEventListener('click', unlockAudioAndPlayBGM, { capture: true });
+  window.addEventListener('keydown', unlockAudioAndPlayBGM, { capture: true });
+  window.addEventListener('pointerdown', unlockAudioAndPlayBGM, { capture: true });
 
   init();
 })();
