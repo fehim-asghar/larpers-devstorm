@@ -163,6 +163,7 @@
   let onlineOpponentFinished = false;
   let opponentWpmHistory = [];
   let matchConcludingTimeout = null;
+  let isTransitioningResults = false;
 
   // Phase 3: Error Taxonomy & Keystroke Diagnostics State
   let errorTaxonomy = { symbol: 0, letter: 0, whitespace: 0 };
@@ -881,6 +882,9 @@
   }
 
   function finishRace() {
+    if (isTransitioningResults) return;
+    isTransitioningResults = true;
+
     cancelAnimationFrame(timerRAF);
     if (ghostRAF) cancelAnimationFrame(ghostRAF);
     elapsedMs = performance.now() - startTime - pauseOffset;
@@ -1440,7 +1444,8 @@
             onlineOpponentStats = data.opponentStats;
           }
 
-          if (screens.arena.classList.contains('active')) {
+          if (screens.arena.classList.contains('active') && !isTransitioningResults) {
+            isTransitioningResults = true;
             // If loser was still in arena, transition them to results now!
             const myFinalStats = data.myStats || {
               wpm: calcWPM(),
@@ -1481,18 +1486,63 @@
             }
           }
         } else if (data.type === 'OPPONENT_DISCONNECTED') {
-          if (screens.arena.classList.contains('active') || screens.results.classList.contains('active')) {
-            onlineOpponentFinished = true;
-            onlineOpponentStats = { wpm: 0, accuracy: 0, timeMs: 999999 };
-            if (data.matchResult && data.matchResult.user && data.matchResult.isRanked) {
-              currentUser = data.matchResult.user;
-              localStorage.setItem('syntax_user', JSON.stringify(currentUser));
-              updateProfileUI();
-            }
-            el.resultBanner.textContent = data.matchResult?.isRanked
-              ? 'RIVAL FORFEIT — VICTORY! (+25 MMR)'
-              : 'FRIEND LEFT — DUEL ENDED (0 MMR)';
-            el.resultBanner.className = 'result-banner win';
+          onlineOpponentFinished = true;
+          onlineOpponentStats = { wpm: 0, accuracy: 0, timeMs: 999999 };
+          if (data.matchResult && data.matchResult.user && data.matchResult.isRanked) {
+            currentUser = data.matchResult.user;
+            localStorage.setItem('syntax_user', JSON.stringify(currentUser));
+            updateProfileUI();
+          }
+
+          if (screens.arena.classList.contains('active') && !isTransitioningResults) {
+            isTransitioningResults = true;
+            cancelAnimationFrame(timerRAF);
+            if (ghostRAF) cancelAnimationFrame(ghostRAF);
+            el.hiddenInput.removeEventListener('keydown', handleKeystroke);
+            el.hiddenInput.blur();
+            const myFinalStats = {
+              wpm: calcWPM(),
+              accuracy: calcAccuracy(),
+              consistency: calcConsistency(),
+              timeMs: Math.round(elapsedMs || (performance.now() - startTime)),
+              errorTaxonomy: { ...errorTaxonomy },
+              fumbledKeys: { ...fumbledKeysMap }
+            };
+            showResults(myFinalStats, onlineOpponentStats);
+          }
+
+          el.resultBanner.textContent = data.matchResult?.isRanked
+            ? 'RIVAL FORFEIT — VICTORY! (+25 MMR)'
+            : 'FRIEND LEFT — DUEL ENDED (0 MMR)';
+          el.resultBanner.className = 'result-banner win';
+          if (el.btnRaceAgain && mode === 'online') {
+            el.btnRaceAgain.disabled = true;
+            el.btnRaceAgain.textContent = '❌ RIVAL DISCONNECTED';
+            el.btnRaceAgain.classList.remove('pulse-glow');
+          }
+        } else if (data.type === 'REMATCH_OFFERED') {
+          if (screens.results.classList.contains('active') && el.btnRaceAgain) {
+            el.btnRaceAgain.disabled = false;
+            el.btnRaceAgain.textContent = '⚡ ACCEPT REMATCH (1/2)';
+            el.btnRaceAgain.classList.add('pulse-glow');
+          }
+        } else if (data.type === 'REMATCH_PENDING') {
+          if (screens.results.classList.contains('active') && el.btnRaceAgain) {
+            el.btnRaceAgain.disabled = true;
+            el.btnRaceAgain.textContent = '⏳ REMATCH SENT (1/2)';
+            el.btnRaceAgain.classList.remove('pulse-glow');
+          }
+        } else if (data.type === 'REMATCH_CANCELLED') {
+          if (screens.results.classList.contains('active') && el.btnRaceAgain) {
+            el.btnRaceAgain.disabled = true;
+            el.btnRaceAgain.textContent = '❌ RIVAL LEFT';
+            el.btnRaceAgain.classList.remove('pulse-glow');
+          }
+        } else if (data.type === 'REMATCH_ERROR') {
+          if (el.btnRaceAgain) {
+            el.btnRaceAgain.disabled = true;
+            el.btnRaceAgain.textContent = '❌ REMATCH UNAVAILABLE';
+            el.btnRaceAgain.classList.remove('pulse-glow');
           }
         }
       } catch (err) {
@@ -1537,6 +1587,13 @@
     pauseOffset = 0;
     isPaused = false;
     isExploding = false;
+    isTransitioningResults = false;
+    onlineOpponentStats = null;
+    onlineOpponentFinished = false;
+    if (matchConcludingTimeout) {
+      clearTimeout(matchConcludingTimeout);
+      matchConcludingTimeout = null;
+    }
     wpmHistory = [];
     opponentWpmHistory = [];
     errorTaxonomy = { symbol: 0, letter: 0, whitespace: 0 };
@@ -1701,6 +1758,7 @@
 
   function showResults(playerStats, ghostStats) {
     switchScreen('results');
+    isTransitioningResults = false;
     if (el.tierPromotionBanner) el.tierPromotionBanner.classList.add('hidden');
 
     el.statPWpm.textContent = playerStats.wpm;
@@ -1750,14 +1808,19 @@
 
     if (mode === 'online') {
       el.statCardGhost.classList.remove('hidden');
+      if (el.btnRaceAgain) {
+        el.btnRaceAgain.disabled = false;
+        el.btnRaceAgain.textContent = '🔁 REQUEST REMATCH';
+        el.btnRaceAgain.classList.remove('pulse-glow');
+      }
       const opp = ghostStats || onlineOpponentStats;
       if (opp) {
         updateOpponentResultsStats(opp, playerStats);
         if (playerStats.timeMs <= opp.timeMs) {
-          el.resultBanner.textContent = 'VICTORY — YOU WON THE DUEL!';
+          el.resultBanner.textContent = isCustomMatch ? 'VICTORY — YOU WON THE CUSTOM DUEL!' : 'VICTORY — YOU WON THE DUEL!';
           el.resultBanner.className = 'result-banner win';
         } else {
-          el.resultBanner.textContent = 'DEFEAT — RIVAL WAS FASTER!';
+          el.resultBanner.textContent = isCustomMatch ? 'DEFEAT — FRIEND WAS FASTER!' : 'DEFEAT — RIVAL WAS FASTER!';
           el.resultBanner.className = 'result-banner lose';
         }
       } else {
@@ -1770,6 +1833,10 @@
       }
     } else if (ghostStats && mode === 'race') {
       el.statCardGhost.classList.remove('hidden');
+      if (el.btnRaceAgain) {
+        el.btnRaceAgain.textContent = '🔁 RACE AGAIN';
+        el.btnRaceAgain.classList.remove('pulse-glow');
+      }
       el.statGWpm.textContent = ghostStats.wpm;
       el.statGAcc.textContent = ghostStats.accuracy + '%';
       el.statGTime.textContent = (ghostStats.timeMs / 1000).toFixed(1) + 's';
@@ -2009,8 +2076,24 @@
   });
   el.profilePill.addEventListener('click', handleProfilePillClick);
   el.btnNewGhost.addEventListener('click', () => startRace('record'));
-  el.btnRaceAgain.addEventListener('click', () => { if (!el.btnRaceAgain.disabled) startRace('race'); });
-  el.btnBackLobby.addEventListener('click', () => { updateLobbyState(); switchScreen('lobby'); });
+  el.btnRaceAgain.addEventListener('click', () => {
+    if (el.btnRaceAgain.disabled) return;
+    if (mode === 'online' && ws && ws.readyState === 1) {
+      ws.send(JSON.stringify({ type: 'REQUEST_REMATCH' }));
+      el.btnRaceAgain.textContent = '⏳ WAITING FOR RIVAL...';
+      el.btnRaceAgain.disabled = true;
+      el.btnRaceAgain.classList.remove('pulse-glow');
+    } else if (mode === 'race' || mode === 'record') {
+      startRace('race');
+    }
+  });
+  el.btnBackLobby.addEventListener('click', () => {
+    if (mode === 'online' && ws && ws.readyState === 1) {
+      try { ws.send(JSON.stringify({ type: 'LEAVE_MATCH' })); } catch (e) {}
+    }
+    updateLobbyState();
+    switchScreen('lobby');
+  });
   el.btnAudioToggle.addEventListener('click', toggleAudio);
   el.btnCopyCard.addEventListener('click', copyResultCard);
 

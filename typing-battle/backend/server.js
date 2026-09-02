@@ -27,25 +27,23 @@ const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 const db = require('./db');
 
-// In-Memory Session Token Store (token -> { userId, expiresAt })
-const sessionTokens = new Map();
-
+// Persistent SQLite Session Token Store
 function createSessionToken(userId) {
   const token = 'tok_' + crypto.randomBytes(24).toString('hex');
   const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
-  sessionTokens.set(token, { userId, expiresAt });
+  db.createSession(token, userId, expiresAt);
   return token;
 }
 
 function getUserFromSessionToken(token) {
   if (!token || typeof token !== 'string') return null;
-  const session = sessionTokens.get(token);
+  const session = db.getSession(token);
   if (!session) return null;
-  if (Date.now() > session.expiresAt) {
-    sessionTokens.delete(token);
+  if (Date.now() > session.expires_at) {
+    db.deleteSession(token);
     return null;
   }
-  return db.getUserById(session.userId);
+  return db.getUserById(session.user_id);
 }
 
 let quotes = [];
@@ -271,9 +269,9 @@ const wss = new WebSocketServer({
       ) {
         return true;
       }
-      return true; // Allow by default for real-time game sockets
+      return false; // Reject untrusted third-party web origins
     } catch (e) {
-      return true;
+      return false;
     }
   }
 });
@@ -315,7 +313,6 @@ function derivePlayerLiveStats(playerWs, paragraph, sentAt) {
   if (!playerWs) {
     return { wpm: 0, accuracy: 100, timeMs: 999999, errorTaxonomy: { symbol: 0, letter: 0, whitespace: 0 }, fumbledKeys: null };
   }
-  const quoteLen = paragraph ? paragraph.length : 100;
   const now = Date.now();
   const firstKey = playerWs.firstKeyAt || ((sentAt || now - 5000) + 1800);
   const lastKey = playerWs.lastKeyAt || now;
@@ -360,10 +357,10 @@ setInterval(() => {
     const guestDead = !room.guestWs || room.guestWs.readyState !== 1;
     if (hostDead && guestDead) customRooms.delete(code);
   }
-  // Clean expired session tokens
-  for (const [token, session] of sessionTokens) {
-    if (now > session.expiresAt) sessionTokens.delete(token);
-  }
+  // Clean expired SQLite session tokens
+  try {
+    db.cleanExpiredSessions();
+  } catch (e) { }
 }, 60000);
 
 wss.on('connection', (ws) => {
@@ -807,6 +804,98 @@ wss.on('connection', (ws) => {
             // Give un-finished player 2.5s grace to wrap up before deriving partial stream stats
             setTimeout(resolveMatch, 2500);
           }
+        }
+      }
+
+      // ─── 6. Rematch Request & Acceptance Protocol ───
+      if (msg.type === 'REQUEST_REMATCH') {
+        const session = ws.matchSession;
+        if (!session || !ws.opponent || ws.opponent.readyState !== 1) {
+          ws.send(JSON.stringify({ type: 'REMATCH_ERROR', message: 'Rival is no longer connected.' }));
+          return;
+        }
+
+        if (!session.rematchRequests) {
+          session.rematchRequests = new Set();
+        }
+        session.rematchRequests.add(ws);
+
+        if (session.rematchRequests.size === 1) {
+          // Notify the other player that a rematch was requested
+          ws.opponent.send(JSON.stringify({
+            type: 'REMATCH_OFFERED',
+            fromUser: ws.user
+          }));
+          ws.send(JSON.stringify({
+            type: 'REMATCH_PENDING'
+          }));
+        } else if (session.rematchRequests.size >= 2) {
+          // Both players accepted rematch! Start new match with fresh quote!
+          const p1 = session.p1;
+          const p2 = session.p2;
+          const matchTier = session.tier || Math.min(p1.user?.current_tier || 1, p2.user?.current_tier || 1);
+          const quoteObj = getRandomQuote(matchTier);
+          const newMatchId = (session.isRanked ? 'm_' : 'custom_') + Math.random().toString(36).substring(2, 10);
+          const matchNow = Date.now();
+
+          const newSession = {
+            id: newMatchId,
+            p1,
+            p2,
+            paragraph: quoteObj.text,
+            tier: matchTier,
+            quoteObj,
+            matchStartSentAt: matchNow,
+            p1Stats: null,
+            p2Stats: null,
+            isResolved: false,
+            isRanked: session.isRanked,
+            rematchRequests: new Set()
+          };
+
+          p1.firstKeyAt = null;
+          p1.lastKeyAt = null;
+          p1.serverTotalKeystrokes = 0;
+          p1.serverErrors = 0;
+          p1.serverTaxonomy = { symbol: 0, letter: 0, whitespace: 0 };
+
+          p2.firstKeyAt = null;
+          p2.lastKeyAt = null;
+          p2.serverTotalKeystrokes = 0;
+          p2.serverErrors = 0;
+          p2.serverTaxonomy = { symbol: 0, letter: 0, whitespace: 0 };
+
+          p1.matchSession = newSession;
+          p2.matchSession = newSession;
+          activeMatches.set(newMatchId, newSession);
+
+          p1.send(JSON.stringify({
+            type: 'MATCH_START',
+            paragraph: quoteObj.text,
+            quoteObj,
+            tier: matchTier,
+            role: 'p1',
+            matchId: newMatchId,
+            isRanked: session.isRanked,
+            opponentUser: p2.user
+          }));
+
+          p2.send(JSON.stringify({
+            type: 'MATCH_START',
+            paragraph: quoteObj.text,
+            quoteObj,
+            tier: matchTier,
+            role: 'p2',
+            matchId: newMatchId,
+            isRanked: session.isRanked,
+            opponentUser: p1.user
+          }));
+        }
+      }
+
+      if (msg.type === 'LEAVE_MATCH') {
+        if (ws.opponent && ws.opponent.readyState === 1) {
+          ws.opponent.send(JSON.stringify({ type: 'REMATCH_CANCELLED', message: 'Rival returned to lobby.' }));
         }
       }
     } catch (err) {

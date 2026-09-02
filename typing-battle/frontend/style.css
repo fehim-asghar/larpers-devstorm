@@ -1408,12 +1408,14 @@ kbd {
 
 /* ─── HATSUNE MIKU PIXEL CARET ─── */
 .char.current {
-  color: #00F2FE !important;
+  color: var(--text-dim);
   position: relative;
-  background: rgba(0, 242, 254, 0.18);
-  border-bottom: 2px solid #00F2FE;
-  border-radius: 4px;
-  text-shadow: 0 0 10px rgba(0, 242, 254, 0.8);
+  background: none;
+  border-bottom: none;
+  border-left: 2px solid #00F2FE;
+  border-radius: 0;
+  text-shadow: none;
+  animation: caretBlink 0.8s step-end infinite;
 }
 .char.current::before {
   content: '';
@@ -1434,6 +1436,11 @@ kbd {
 @keyframes mikuBounce {
   0% { transform: translateX(-50%) translateY(0); }
   100% { transform: translateX(-50%) translateY(-4px); }
+}
+
+@keyframes caretBlink {
+  0%, 100% { border-left-color: #00F2FE; }
+  50% { border-left-color: transparent; }
 }
 
 .char.correct {
@@ -1584,12 +1591,18 @@ kbd {
 /* ══════════════════════════════════════════════════════════
    RESULTS
    ══════════════════════════════════════════════════════════ */
+#results.screen {
+  overflow-y: auto;
+  justify-content: flex-start;
+  padding: 32px 0;
+}
 .results-content {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 24px;
   width: min(90vw, 700px);
+  padding-bottom: 40px;
 }
 
 .result-banner {

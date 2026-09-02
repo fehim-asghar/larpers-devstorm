@@ -55,8 +55,15 @@ db.exec(`
     recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id),
+    expires_at INTEGER NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_users_mmr ON users(mmr DESC);
   CREATE INDEX IF NOT EXISTS idx_ghost_quote ON ghost_runs(quote_text, wpm DESC);
+  CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 `);
 
 // Auto-migration: ensure win_streak and current_tier columns exist on existing DB files
@@ -157,11 +164,31 @@ const stmts = {
     WHERE g.quote_text = ?
     ORDER BY g.wpm DESC, g.accuracy DESC, g.time_ms ASC
     LIMIT 1
-  `)
+  `),
+  // ─── Sessions (Persistent Auth) ───
+  insertSession: db.prepare(`
+    INSERT OR REPLACE INTO sessions (token, user_id, expires_at)
+    VALUES (@token, @user_id, @expires_at)
+  `),
+  getSession: db.prepare('SELECT * FROM sessions WHERE token = ?'),
+  deleteSession: db.prepare('DELETE FROM sessions WHERE token = ?'),
+  cleanExpiredSessions: db.prepare('DELETE FROM sessions WHERE expires_at < ?')
 };
 
 module.exports = {
   db,
+  createSession(token, userId, expiresAt) {
+    return stmts.insertSession.run({ token, user_id: userId, expires_at: expiresAt });
+  },
+  getSession(token) {
+    return stmts.getSession.get(token);
+  },
+  deleteSession(token) {
+    return stmts.deleteSession.run(token);
+  },
+  cleanExpiredSessions() {
+    return stmts.cleanExpiredSessions.run(Date.now());
+  },
   getUserById(id) {
     return stmts.getUserById.get(id);
   },
