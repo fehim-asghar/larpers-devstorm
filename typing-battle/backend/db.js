@@ -165,7 +165,7 @@ module.exports = {
     return res.rows[0] || null;
   },
 
-  async createGuestUser({ id, username, avatarUrl = null, mmr = 500, currentTier = 1 }) {
+  async createGuestUser({ id, username, avatarUrl = null, mmr = 0, currentTier = 1 }) {
     await initDb();
     const existing = await module.exports.getUserById(id);
     if (existing) return existing;
@@ -193,7 +193,7 @@ module.exports = {
     const id = 'usr_' + Math.random().toString(36).substring(2, 10);
     await client.execute({
       sql: `INSERT INTO users (id, google_id, username, avatar_url, mmr, best_wpm, avg_accuracy, win_streak, current_tier)
-            VALUES (?, ?, ?, ?, 500, 0, 100.0, 0, 1)`,
+            VALUES (?, ?, ?, ?, 0, 0, 100.0, 0, 1)`,
       args: [id, googleId, username || 'Racer_' + id.slice(-4), avatarUrl]
     });
     return module.exports.getUserById(id);

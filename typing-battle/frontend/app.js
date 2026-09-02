@@ -122,9 +122,50 @@
     tierPromotionBanner: $('tier-promotion-banner'),
     promoTitle: $('promo-title'),
     promoDesc: $('promo-desc'),
+    rankProgressCard: $('rank-progress-card'),
+    rankIcon: $('rank-icon'),
+    rankTitle: $('rank-title'),
+    rankPointsText: $('rank-points-text'),
+    rankStatusTag: $('rank-status-tag'),
+    rankBarFill: $('rank-bar-fill'),
     dashCurriculumBadge: $('dash-curriculum-badge'),
     dashCurriculumBar: $('dash-curriculum-bar'),
   };
+
+  // ─── Ranked Divisions Progression Ladder (Starts at 0 RP) ───
+  const RANK_DIVISIONS = [
+    { name: 'Rookie', icon: '🥉', min: 0, max: 99, next: 'Hacker', nextMin: 100 },
+    { name: 'Hacker', icon: '🥈', min: 100, max: 249, next: 'Cyber Viper', nextMin: 250 },
+    { name: 'Cyber Viper', icon: '🥇', min: 250, max: 499, next: 'Code Architect', nextMin: 500 },
+    { name: 'Code Architect', icon: '💎', min: 500, max: 749, next: 'Titan', nextMin: 750 },
+    { name: 'Titan', icon: '🔥', min: 750, max: 999, next: 'Apex Master', nextMin: 1000 },
+    { name: 'Apex Master', icon: '👑', min: 1000, max: Infinity, next: null, nextMin: null }
+  ];
+
+  function getRankDetails(rp) {
+    const points = Math.max(0, parseInt(rp) || 0);
+    const tier = RANK_DIVISIONS.find(t => points >= t.min && (t.max === Infinity || points <= t.max)) || RANK_DIVISIONS[0];
+    
+    let progressPercent = 100;
+    let neededForNext = 0;
+    let nextTierName = tier.next;
+
+    if (tier.nextMin !== null) {
+      const range = tier.nextMin - tier.min;
+      const current = points - tier.min;
+      progressPercent = Math.min(100, Math.max(0, Math.round((current / range) * 100)));
+      neededForNext = tier.nextMin - points;
+    }
+
+    return {
+      tier,
+      points,
+      title: `${tier.icon} ${tier.name}`,
+      progressPercent,
+      neededForNext,
+      nextTierName
+    };
+  }
 
   // ─── State ───
   let quotes = [];
@@ -348,16 +389,18 @@
   }
 
   function showVsClashScreen(rival, onComplete) {
-    const p1 = currentUser || { username: 'YOU', avatar_url: 'miku.gif', mmr: 500, best_wpm: 60 };
-    const p2 = rival || { username: 'RIVAL RACER', avatar_url: 'miku.gif', mmr: 500, best_wpm: 60 };
+    const p1 = currentUser || { username: 'YOU', avatar_url: 'miku.gif', mmr: 0, best_wpm: 0 };
+    const p2 = rival || { username: 'RIVAL RACER', avatar_url: 'miku.gif', mmr: 0, best_wpm: 0 };
+    const p1Rank = getRankDetails(p1.mmr || 0);
+    const p2Rank = getRankDetails(p2.mmr || 0);
 
     el.vsP1Avatar.src = p1.avatar_url || 'miku.gif';
     el.vsP1Name.textContent = (p1.username || 'YOU').toUpperCase();
-    el.vsP1Badge.textContent = `${p1.mmr || 500} MMR · ${getSpeedTier(p1.best_wpm || 60)}`;
+    el.vsP1Badge.textContent = `${p1Rank.points} RP · ${p1Rank.title}`;
 
     el.vsP2Avatar.src = p2.avatar_url || 'miku.gif';
     el.vsP2Name.textContent = (p2.username || 'RIVAL RACER').toUpperCase();
-    el.vsP2Badge.textContent = `${p2.mmr || 500} MMR · ${getSpeedTier(p2.best_wpm || 60)}`;
+    el.vsP2Badge.textContent = `${p2Rank.points} RP · ${p2Rank.title}`;
 
     switchScreen('vs');
     playClashSound();
@@ -1058,14 +1101,15 @@
   // ══════════════════════════════════════════════════════
   function updateProfileUI() {
     if (currentUser) {
+      const rank = getRankDetails(currentUser.mmr || 0);
       el.userName.textContent = currentUser.username || 'Racer';
       el.userAvatar.src = currentUser.avatar_url || 'miku.gif';
-      el.userMmrBadge.textContent = `${currentUser.mmr || 500} MMR · 🌸 Viper`;
+      el.userMmrBadge.textContent = `${rank.points} RP · ${rank.title}`;
       el.profilePill.classList.add('logged-in');
     } else {
-      el.userName.textContent = 'Guest';
+      el.userName.textContent = 'Sign In';
       el.userAvatar.src = 'miku.gif';
-      el.userMmrBadge.textContent = '500 MMR (Unranked)';
+      el.userMmrBadge.textContent = '0 RP · 🥉 Rookie';
       el.profilePill.classList.remove('logged-in');
     }
     updateTierUI();
@@ -1357,12 +1401,12 @@
     const matchesPlayed = user.matches_played || 0;
     const matchesWon = user.matches_won || 0;
     const winRate = matchesPlayed > 0 ? Math.round((matchesWon / matchesPlayed) * 100) : 0;
-    const tierName = user.mmr >= 700 ? '⚡ APEX' : (user.mmr >= 600 ? '🔥 TITAN' : '🌸 VIPER');
+    const rank = getRankDetails(user.mmr || 0);
 
     if (el.dashUserAvatar) el.dashUserAvatar.src = user.avatar_url || 'miku.gif';
     if (el.dashUserName) el.dashUserName.textContent = user.username || 'Racer';
-    if (el.dashDivisionBadge) el.dashDivisionBadge.textContent = tierName;
-    if (el.dashUserMmr) el.dashUserMmr.textContent = `${user.mmr || 500} MMR`;
+    if (el.dashDivisionBadge) el.dashDivisionBadge.textContent = rank.title.toUpperCase();
+    if (el.dashUserMmr) el.dashUserMmr.textContent = `${rank.points} RP`;
     if (el.dashBestWpm) el.dashBestWpm.textContent = `${user.best_wpm || 0} WPM`;
     if (el.dashWinRate) el.dashWinRate.textContent = `${winRate}%`;
     if (el.dashWinStreak) el.dashWinStreak.textContent = `${user.win_streak || 0} 🔥`;
@@ -1582,11 +1626,14 @@
             clearTimeout(matchConcludingTimeout);
             matchConcludingTimeout = null;
           }
+          const oldRp = currentUser?.mmr || 0;
           if (data.isRanked && data.user) {
             currentUser = data.user;
             localStorage.setItem('syntax_user', JSON.stringify(currentUser));
             updateProfileUI();
           }
+          const newRp = currentUser?.mmr !== undefined ? currentUser.mmr : Math.max(0, oldRp + (data.mmrDelta || 0));
+
           if (data.tierPromotion) {
             showTierPromotionBanner(data.tierPromotion);
           }
@@ -1595,6 +1642,10 @@
             playMikuVoice('you_got_it', 0.95);
           } else {
             playDefeatChime();
+          }
+
+          if (data.isRanked) {
+            updateRankProgressCard(oldRp, newRp, data.mmrDelta || 0);
           }
 
           if (data.opponentStats) {
@@ -1625,19 +1676,19 @@
           if (screens.results.classList.contains('active')) {
             if (!data.isRanked) {
               if (data.won) {
-                el.resultBanner.textContent = 'VICTORY — YOU WON THE CUSTOM DUEL! (0 MMR)';
+                el.resultBanner.textContent = 'VICTORY — YOU WON THE CUSTOM DUEL! (0 RP)';
                 el.resultBanner.className = 'result-banner win';
               } else {
-                el.resultBanner.textContent = 'DEFEAT — FRIEND WAS FASTER! (0 MMR)';
+                el.resultBanner.textContent = 'DEFEAT — FRIEND WAS FASTER! (0 RP)';
                 el.resultBanner.className = 'result-banner lose';
               }
             } else {
               const bonusText = data.bonuses && data.bonuses.length ? ` [${data.bonuses.join(' ')}]` : '';
               if (data.won) {
-                el.resultBanner.textContent = `VICTORY! (+${data.mmrDelta} MMR)${bonusText}`;
+                el.resultBanner.textContent = `VICTORY! (+${data.mmrDelta} RP)${bonusText}`;
                 el.resultBanner.className = 'result-banner win';
               } else {
-                el.resultBanner.textContent = `DEFEAT (${data.mmrDelta} MMR)`;
+                el.resultBanner.textContent = `DEFEAT (${data.mmrDelta} RP)`;
                 el.resultBanner.className = 'result-banner lose';
               }
             }
@@ -1956,10 +2007,63 @@
     }
   }
 
+  function updateRankProgressCard(oldRp, newRp, delta) {
+    if (!el.rankProgressCard) return;
+    const rank = getRankDetails(newRp);
+    el.rankProgressCard.classList.remove('hidden');
+    if (el.rankIcon) el.rankIcon.textContent = rank.tier.icon;
+    if (el.rankTitle) el.rankTitle.textContent = rank.tier.name.toUpperCase();
+    
+    const deltaStr = (delta >= 0) ? `+${delta} RP` : `${delta} RP`;
+    if (el.rankPointsText) el.rankPointsText.textContent = `${rank.points} RP (${deltaStr} this match)`;
+
+    if (el.rankStatusTag) {
+      if (rank.nextTierName) {
+        el.rankStatusTag.textContent = `${rank.neededForNext} RP to ${rank.tier.icon} ${rank.nextTierName}`;
+      } else {
+        el.rankStatusTag.textContent = `👑 MAXIMUM RANK REACHED!`;
+      }
+    }
+
+    // Animate fill bar
+    if (el.rankBarFill) {
+      el.rankBarFill.style.width = '0%';
+      setTimeout(() => {
+        el.rankBarFill.style.width = `${rank.progressPercent}%`;
+      }, 150);
+    }
+
+    // Check if division ranked up
+    const oldRank = getRankDetails(oldRp);
+    if (rank.tier.name !== oldRank.tier.name && newRp > oldRp) {
+      showRankUpCelebration(rank.tier);
+    }
+  }
+
+  function showRankUpCelebration(newTier) {
+    if (!el.tierPromotionBanner) return;
+    const promoIcon = el.tierPromotionBanner.querySelector('.promo-icon');
+    const promoBadge = el.tierPromotionBanner.querySelector('.promo-badge');
+    const promoTitle = el.tierPromotionBanner.querySelector('#promo-title');
+    const promoDesc = el.tierPromotionBanner.querySelector('#promo-desc');
+
+    if (promoIcon) promoIcon.textContent = newTier.icon || '👑';
+    if (promoBadge) promoBadge.textContent = 'DIVISION PROMOTION!';
+    if (promoTitle) promoTitle.textContent = `PROMOTED TO ${newTier.name.toUpperCase()}!`;
+    if (promoDesc) promoDesc.textContent = `Incredible speed! You've climbed to ${newTier.name} division!`;
+
+    el.tierPromotionBanner.classList.remove('hidden');
+    playVictoryFanfare();
+    playMikuVoice('you_got_it', 0.95);
+  }
+
   function showResults(playerStats, ghostStats) {
     switchScreen('results');
     isTransitioningResults = false;
     if (el.tierPromotionBanner) el.tierPromotionBanner.classList.add('hidden');
+    if (mode !== 'online' && el.rankProgressCard) {
+      el.rankProgressCard.classList.add('hidden');
+    }
 
     el.statPWpm.textContent = playerStats.wpm;
     el.statPAcc.textContent = playerStats.accuracy + '%';

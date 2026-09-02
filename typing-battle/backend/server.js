@@ -174,7 +174,7 @@ app.get('/api/profile/me', async (req, res) => {
   if (!userId) return res.status(400).json({ error: 'Missing userId' });
   const user = await db.getUserById(userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
-  return res.json({ user });
+  return res.json({ success: true, user });
 });
 
 app.get('/api/leaderboard', async (req, res) => {
@@ -282,7 +282,7 @@ let activeMatches = new Map(); // matchId -> session
 
 function computeMmrDeltas(winnerUser, loserUser, winnerStats, loserStats) {
   let winnerDelta = 25; // Base win
-  const loserDelta = -15; // Base loss
+  const loserDelta = -10; // Base loss
 
   const bonuses = [];
   // +10 Flawless run (100% accuracy)
@@ -753,8 +753,8 @@ wss.on('connection', (ws) => {
                 });
               }
 
-              const updatedWinnerUser = (winnerWs.user && !winnerWs.user.id.startsWith('guest_')) ? await db.getUserById(winnerWs.user.id) : { ...winnerWs.user, mmr: Math.max(0, (winnerWs.user?.mmr || 500) + winnerDelta) };
-              const updatedLoserUser = (loserWs.user && !loserWs.user.id.startsWith('guest_')) ? await db.getUserById(loserWs.user.id) : { ...loserWs.user, mmr: Math.max(0, (loserWs.user?.mmr || 500) + loserDelta) };
+              const updatedWinnerUser = (winnerWs.user && !winnerWs.user.id.startsWith('guest_')) ? await db.getUserById(winnerWs.user.id) : { ...winnerWs.user, mmr: Math.max(0, (winnerWs.user?.mmr || 0) + winnerDelta) };
+              const updatedLoserUser = (loserWs.user && !loserWs.user.id.startsWith('guest_')) ? await db.getUserById(loserWs.user.id) : { ...loserWs.user, mmr: Math.max(0, (loserWs.user?.mmr || 0) + loserDelta) };
 
               if (winnerWs.readyState === 1) {
                 winnerWs.send(JSON.stringify({

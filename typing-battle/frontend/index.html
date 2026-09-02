@@ -29,11 +29,11 @@
       <button id="btn-audio-toggle-lobby" class="top-bar-card btn-audio-card" title="Toggle Popipo Music and SFX">
         <span class="audio-icon">🔊</span> <span class="audio-label">MUSIC ON</span>
       </button>
-      <div id="profile-pill" class="top-bar-card profile-card" title="Click to view profile / logout">
+      <div id="profile-pill" class="top-bar-card profile-card" title="Click to view profile / sign in / logout">
         <img id="user-avatar" class="user-avatar" src="miku.gif" alt="Avatar">
         <div class="profile-card-info">
-          <span id="user-name" class="user-name">Guest</span>
-          <span id="user-mmr-badge" class="user-mmr-badge">500 MMR · 🌸 Viper</span>
+          <span id="user-name" class="user-name">Sign In</span>
+          <span id="user-mmr-badge" class="user-mmr-badge">0 RP · 🥉 Rookie</span>
         </div>
       </div>
     </header>
@@ -411,6 +411,23 @@
           <div class="promo-badge">TIER UNLOCKED!</div>
           <div class="promo-title" id="promo-title">Tier 2 · Symbols & Operators</div>
           <div class="promo-desc" id="promo-desc">You can now practice and battle with syntax & bracket snippets!</div>
+        </div>
+      </div>
+
+      <!-- Ranked Division Progress Card (Phase 6) -->
+      <div id="rank-progress-card" class="rank-progress-card hidden">
+        <div class="rank-progress-header">
+          <div class="rank-badge-info">
+            <span id="rank-icon" class="rank-icon">🥉</span>
+            <div>
+              <div id="rank-title" class="rank-title">ROOKIE</div>
+              <div id="rank-points-text" class="rank-points-text">25 RP (+25 RP this match)</div>
+            </div>
+          </div>
+          <div id="rank-status-tag" class="rank-status-tag">75 RP to 🥈 Hacker</div>
+        </div>
+        <div class="rank-bar-track">
+          <div id="rank-bar-fill" class="rank-bar-fill" style="width: 25%;"></div>
         </div>
       </div>
 
