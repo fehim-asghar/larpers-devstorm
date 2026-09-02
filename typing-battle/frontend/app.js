@@ -385,19 +385,29 @@
       ensureAudio();
       popipoBuffer = await audioCtx.decodeAudioData(arrayBuf);
       console.log('🎵 Popipo audio buffer decoded successfully.');
-      if (screens.lobby.classList.contains('active') && !isMuted) {
-        startLobbyBGM();
+      if ((screens.lobby.classList.contains('active') || screens.results.classList.contains('active')) && !isMuted) {
+        startLobbyBGM(0.88);
       }
     } catch (e) {
       console.warn('Could not load popipo.mp3:', e);
     }
   }
 
-  function startLobbyBGM() {
-    if (isMuted || isPopipoPlaying) return;
+  function startLobbyBGM(playbackRate = 0.88, targetVolume = 0.28) {
+    if (isMuted) return;
     ensureAudio();
     if (!popipoBuffer) {
       preloadPopipoAudio();
+      return;
+    }
+    if (isPopipoPlaying && popipoSource) {
+      try {
+        popipoSource.playbackRate.setValueAtTime(playbackRate, audioCtx.currentTime);
+        if (popipoGain) {
+          popipoGain.gain.setValueAtTime(popipoGain.gain.value, audioCtx.currentTime);
+          popipoGain.gain.exponentialRampToValueAtTime(targetVolume, audioCtx.currentTime + 0.3);
+        }
+      } catch (e) { }
       return;
     }
     try {
@@ -407,10 +417,11 @@
       // Precise beat-aligned loop measure from 49.37s to 57.60s (140 BPM grid)
       popipoSource.loopStart = 49.371;
       popipoSource.loopEnd = 57.600;
+      popipoSource.playbackRate.value = playbackRate;
 
       popipoGain = audioCtx.createGain();
       popipoGain.gain.setValueAtTime(0.001, audioCtx.currentTime);
-      popipoGain.gain.exponentialRampToValueAtTime(0.30, audioCtx.currentTime + 0.6); // Smooth 600ms fade in
+      popipoGain.gain.exponentialRampToValueAtTime(targetVolume, audioCtx.currentTime + 0.6); // Smooth 600ms fade in
 
       popipoSource.connect(popipoGain);
       popipoGain.connect(audioCtx.destination);
@@ -496,7 +507,7 @@
       localStorage.setItem('typeghost_muted', isMuted ? 'true' : 'false');
     } catch (e) { }
     if (isMuted) stopLobbyBGM();
-    else if (screens.lobby.classList.contains('active')) startLobbyBGM();
+    else if (screens.lobby.classList.contains('active') || screens.results.classList.contains('active')) startLobbyBGM(0.88);
     updateAudioUI();
   }
 
@@ -519,14 +530,15 @@
     Object.values(screens).forEach(s => s.classList.remove('active'));
     screens[name].classList.add('active');
     const bgVideo = $('lobby-bg-video');
-    if (bgVideo) {
-      if (name === 'lobby') {
-        bgVideo.play().catch(() => { });
-        startLobbyBGM();
-      } else {
-        bgVideo.pause();
-        stopLobbyBGM();
-      }
+    if (name === 'lobby') {
+      if (bgVideo) bgVideo.play().catch(() => { });
+      startLobbyBGM(0.88, 0.28);
+    } else if (name === 'results') {
+      if (bgVideo) bgVideo.pause();
+      startLobbyBGM(0.88, 0.24);
+    } else {
+      if (bgVideo) bgVideo.pause();
+      stopLobbyBGM();
     }
   }
 
@@ -2225,8 +2237,8 @@
   const onFirstInteraction = () => {
     document.removeEventListener('click', onFirstInteraction);
     document.removeEventListener('keydown', onFirstInteraction);
-    if (screens.lobby.classList.contains('active') && !isMuted) {
-      startLobbyBGM();
+    if ((screens.lobby.classList.contains('active') || screens.results.classList.contains('active')) && !isMuted) {
+      startLobbyBGM(0.88);
     }
   };
   document.addEventListener('click', onFirstInteraction);
