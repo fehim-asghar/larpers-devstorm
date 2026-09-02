@@ -394,11 +394,14 @@ wss.on('connection', (ws) => {
       const msg = JSON.parse(msgStr);
 
       // ─── 0. Session Authentication ───
-      if (msg.type === 'AUTH') {
+      if (msg.token) {
         const authUser = await getUserFromSessionToken(msg.token);
-        if (authUser) {
-          ws.user = authUser;
-          ws.send(JSON.stringify({ type: 'AUTH_SUCCESS', user: authUser }));
+        if (authUser) ws.user = authUser;
+      }
+
+      if (msg.type === 'AUTH') {
+        if (ws.user && !ws.user.id.startsWith('guest_')) {
+          ws.send(JSON.stringify({ type: 'AUTH_SUCCESS', user: ws.user }));
         } else {
           ws.send(JSON.stringify({ type: 'AUTH_REQUIRED', message: 'Guest mode active.' }));
         }
@@ -407,25 +410,40 @@ wss.on('connection', (ws) => {
 
       // ─── 1. Custom Unranked Rooms (Phase 5) ───
       if (msg.type === 'CREATE_ROOM') {
+        if (msg.token) {
+          const authUser = await getUserFromSessionToken(msg.token);
+          if (authUser) ws.user = authUser;
+        }
         const code = (msg.roomCode || 'RUSH-' + Math.floor(10 + Math.random() * 90)).toUpperCase();
-        const isGuest = !ws.user || ws.user.isGuest || (ws.user.id && ws.user.id.startsWith('guest_'));
-        const hostUser = isGuest ? { ...ws.user, username: 'Host (Guest)', isGuest: true } : ws.user;
+        const hostUser = ws.user || {
+          id: 'guest_' + crypto.randomBytes(3).toString('hex'),
+          username: msg.username || 'Host',
+          avatar_url: 'miku.gif',
+          isGuest: true,
+          mmr: 500
+        };
         ws.user = hostUser;
         ws.roomCode = code;
 
+        const quoteObj = getRandomQuote(msg.tier || 1);
         customRooms.set(code, {
           hostWs: ws,
           guestWs: null,
           roomCode: code,
           hostUser,
           guestUser: null,
-          paragraph: getRandomQuote()
+          paragraph: quoteObj.text,
+          quoteObj
         });
 
         ws.send(JSON.stringify({ type: 'ROOM_CREATED', roomCode: code }));
       }
 
       if (msg.type === 'JOIN_ROOM') {
+        if (msg.token) {
+          const authUser = await getUserFromSessionToken(msg.token);
+          if (authUser) ws.user = authUser;
+        }
         const code = (msg.roomCode || '').trim().toUpperCase();
         const room = customRooms.get(code);
 
@@ -438,8 +456,13 @@ wss.on('connection', (ws) => {
           return;
         }
 
-        const isGuest = !ws.user || ws.user.isGuest || (ws.user.id && ws.user.id.startsWith('guest_'));
-        const guestUser = isGuest ? { ...ws.user, username: 'Friend (Guest)', isGuest: true } : ws.user;
+        const guestUser = ws.user || {
+          id: 'guest_' + crypto.randomBytes(3).toString('hex'),
+          username: msg.username || 'Challenger',
+          avatar_url: 'miku.gif',
+          isGuest: true,
+          mmr: 500
+        };
         ws.user = guestUser;
         ws.roomCode = code;
         room.guestWs = ws;
@@ -452,6 +475,7 @@ wss.on('connection', (ws) => {
           p1: room.hostWs,
           p2: room.guestWs,
           paragraph: room.paragraph,
+          quoteObj: room.quoteObj,
           matchStartSentAt: now,
           p1Stats: null,
           p2Stats: null,
@@ -480,6 +504,7 @@ wss.on('connection', (ws) => {
         room.hostWs.send(JSON.stringify({
           type: 'MATCH_START',
           paragraph: session.paragraph,
+          quoteObj: session.quoteObj,
           role: 'p1',
           matchId,
           isRanked: false,
@@ -488,6 +513,7 @@ wss.on('connection', (ws) => {
         room.guestWs.send(JSON.stringify({
           type: 'MATCH_START',
           paragraph: session.paragraph,
+          quoteObj: session.quoteObj,
           role: 'p2',
           matchId,
           isRanked: false,
@@ -506,6 +532,10 @@ wss.on('connection', (ws) => {
 
       // ─── 2. Ranked Matchmaking Queue (±150 MMR) ───
       if (msg.type === 'FIND_MATCH') {
+        if (msg.token) {
+          const authUser = await getUserFromSessionToken(msg.token);
+          if (authUser) ws.user = authUser;
+        }
         const playerUser = ws.user; // Server-verified identity only
 
         // Clean out any stale socket references for this user

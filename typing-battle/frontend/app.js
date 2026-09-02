@@ -1372,7 +1372,9 @@
       if (token) ws.send(JSON.stringify({ type: 'AUTH', token }));
       ws.send(JSON.stringify({
         type: 'CREATE_ROOM',
-        roomCode: currentRoomCode
+        roomCode: currentRoomCode,
+        token: token || null,
+        username: currentUser?.username || 'Host'
       }));
     };
 
@@ -1410,7 +1412,9 @@
       if (token) ws.send(JSON.stringify({ type: 'AUTH', token }));
       ws.send(JSON.stringify({
         type: 'JOIN_ROOM',
-        roomCode: cleanCode
+        roomCode: cleanCode,
+        token: token || null,
+        username: currentUser?.username || 'Challenger'
       }));
     };
 
@@ -1460,7 +1464,11 @@
       const token = localStorage.getItem('syntax_token');
       if (token) ws.send(JSON.stringify({ type: 'AUTH', token }));
       el.matchmakingStatus.textContent = 'Searching for live rival...';
-      ws.send(JSON.stringify({ type: 'FIND_MATCH' }));
+      ws.send(JSON.stringify({
+        type: 'FIND_MATCH',
+        token: token || null,
+        user: currentUser || null
+      }));
     };
 
     wireWebSocketEvents();
@@ -1484,9 +1492,11 @@
           isCustomMatch = (data.isRanked === false);
           el.matchmakingModal.classList.add('hidden');
           el.customRoomModal.classList.add('hidden');
-          paragraph = data.paragraph;
-          const foundQuote = quotes.find(q => q.text === data.paragraph) || { text: data.paragraph, source: '1v1 Duel', tier: 2 };
-          updateCurriculumBadge(foundQuote);
+          paragraph = (typeof data.paragraph === 'object' && data.paragraph?.text)
+            ? data.paragraph.text
+            : (data.paragraph || '');
+          const quoteObj = data.quoteObj || quotes.find(q => q.text === paragraph) || { text: paragraph, source: '1v1 Duel', tier: data.tier || 1 };
+          updateCurriculumBadge(quoteObj);
           const rival = data.opponentUser || { username: 'RIVAL RACER', avatar_url: 'miku.gif', mmr: 500, best_wpm: 60 };
           showVsClashScreen(rival, () => {
             startOnlineRace();
@@ -2327,10 +2337,23 @@
     updateAudioUI();
 
     try {
+      const savedToken = localStorage.getItem('syntax_token');
       const savedUser = localStorage.getItem('syntax_user');
       if (savedUser) currentUser = JSON.parse(savedUser);
+      updateProfileUI();
+
+      if (savedToken) {
+        fetch('/api/profile/me', {
+          headers: { 'Authorization': 'Bearer ' + savedToken }
+        }).then(r => r.json()).then(data => {
+          if (data && data.user) {
+            currentUser = data.user;
+            localStorage.setItem('syntax_user', JSON.stringify(currentUser));
+            updateProfileUI();
+          }
+        }).catch(() => {});
+      }
     } catch (e) { }
-    updateProfileUI();
 
     try {
       const authConfigRes = await fetch('/api/auth/config');
