@@ -359,9 +359,7 @@
 
     switchScreen('vs');
     playClashSound();
-    setTimeout(() => {
-      playMikuVoice('fight', 0.65);
-    }, 450);
+    playMikuVoice('fight', 0.95);
 
     setTimeout(() => {
       onComplete();
@@ -380,47 +378,6 @@
   let popipoSource = null;
   let popipoGain = null;
   let isPopipoPlaying = false;
-
-  const mikuVoiceBuffers = {};
-  const voiceFiles = {
-    '3': 'voice/miku_3.mp3',
-    '2': 'voice/miku_2.mp3',
-    '1': 'voice/miku_1.mp3',
-    'go': 'voice/miku_go.mp3',
-    'fight': 'voice/miku_fight.mp3',
-    'you_got_it': 'voice/miku_you_got_it.mp3'
-  };
-
-  async function preloadMikuVoices() {
-    ensureAudio();
-    for (const [key, path] of Object.entries(voiceFiles)) {
-      try {
-        const res = await fetch(path);
-        const arrayBuf = await res.arrayBuffer();
-        mikuVoiceBuffers[key] = await audioCtx.decodeAudioData(arrayBuf);
-      } catch (e) {
-        console.warn(`Could not preload voice clip ${key}:`, e);
-      }
-    }
-  }
-
-  function playMikuVoice(key, volume = 0.60) {
-    if (isMuted) return;
-    ensureAudio();
-    const buf = mikuVoiceBuffers[key];
-    if (!buf) return;
-    try {
-      const src = audioCtx.createBufferSource();
-      src.buffer = buf;
-      const gain = audioCtx.createGain();
-      gain.gain.setValueAtTime(volume, audioCtx.currentTime);
-      src.connect(gain);
-      gain.connect(audioCtx.destination);
-      src.start(0);
-    } catch (e) {
-      console.warn(`Error playing Miku voice ${key}:`, e);
-    }
-  }
 
   async function preloadPopipoAudio() {
     try {
@@ -496,11 +453,54 @@
     }
   }
 
+  // ─── Hatsune Miku Voice Shoutouts Engine ───
+  const mikuVoiceBuffers = {};
+  const MIKU_VOICE_FILES = {
+    '3': 'voice/miku_3.mp3',
+    '2': 'voice/miku_2.mp3',
+    '1': 'voice/miku_1.mp3',
+    'go': 'voice/miku_go.mp3',
+    'fight': 'voice/miku_fight.mp3',
+    'you_got_it': 'voice/miku_you_got_it.mp3'
+  };
+
+  async function preloadMikuVoiceClips() {
+    ensureAudio();
+    for (const [key, url] of Object.entries(MIKU_VOICE_FILES)) {
+      if (mikuVoiceBuffers[key]) continue;
+      try {
+        const res = await fetch(url);
+        const arrayBuf = await res.arrayBuffer();
+        mikuVoiceBuffers[key] = await audioCtx.decodeAudioData(arrayBuf);
+      } catch (e) {
+        console.warn('Could not preload voice clip ' + key + ':', e);
+      }
+    }
+  }
+
+  function playMikuVoice(key, volume = 0.90) {
+    if (isMuted) return false;
+    ensureAudio();
+    const buf = mikuVoiceBuffers[key];
+    if (!buf) return false;
+    try {
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf;
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+      src.connect(gain);
+      gain.connect(audioCtx.destination);
+      src.start(0);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   // ─── Victory & Defeat Audio Fanfares ───
   function playVictoryFanfare() {
     if (isMuted) return;
     ensureAudio();
-    playMikuVoice('you_got_it', 0.70);
     const t = audioCtx.currentTime;
     const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
     notes.forEach((freq, idx) => {
@@ -580,12 +580,12 @@
       startLobbyBGM(0.88, 0.28);
     } else if (name === 'results') {
       if (bgVideo) bgVideo.pause();
-      // Audio ducking & sequencing: delay BGM start by 900ms so Miku voice + fanfare plays cleanly first!
+      // Delay BGM start by 950ms so Miku's "You got it!" + fanfare play in the spotlight with zero clash!
       setTimeout(() => {
-        if (screens.results.classList.contains('active')) {
+        if (screens.results.classList.contains('active') && !isMuted) {
           startLobbyBGM(0.88, 0.24);
         }
-      }, 900);
+      }, 950);
     } else {
       if (bgVideo) bgVideo.pause();
       stopLobbyBGM();
@@ -1499,8 +1499,12 @@
           if (data.tierPromotion) {
             showTierPromotionBanner(data.tierPromotion);
           }
-          if (data.won) playVictoryFanfare();
-          else playDefeatChime();
+          if (data.won) {
+            playVictoryFanfare();
+            playMikuVoice('you_got_it', 0.95);
+          } else {
+            playDefeatChime();
+          }
 
           if (data.opponentStats) {
             onlineOpponentStats = data.opponentStats;
@@ -1728,8 +1732,7 @@
     el.countdownNum.style.animation = 'none';
     void el.countdownNum.offsetWidth;
     el.countdownNum.style.animation = '';
-    playMikuVoice('3', 0.65);
-    playBeep(660, 0.1);
+    if (!playMikuVoice('3')) playBeep(660, 0.1);
 
     const iv = setInterval(() => {
       count--;
@@ -1738,15 +1741,13 @@
         el.countdownNum.style.animation = 'none';
         void el.countdownNum.offsetWidth;
         el.countdownNum.style.animation = '';
-        playMikuVoice(String(count), 0.65);
-        playBeep(660, 0.1);
+        if (!playMikuVoice(String(count))) playBeep(660, 0.1);
       } else if (count === 0) {
         el.countdownNum.textContent = 'GO';
         el.countdownNum.style.animation = 'none';
         void el.countdownNum.offsetWidth;
         el.countdownNum.style.animation = '';
-        playMikuVoice('go', 0.70);
-        playBeep(1320, 0.15);
+        if (!playMikuVoice('go')) playBeep(1320, 0.15);
       } else {
         clearInterval(iv);
         el.countdown.classList.add('hidden');
@@ -1914,10 +1915,12 @@
         el.resultBanner.textContent = 'PERFECT RUN. THE GHOST IS DEAD.';
         el.resultBanner.className = 'result-banner win';
         playVictoryFanfare();
+        playMikuVoice('you_got_it', 0.95);
       } else if (playerStats.timeMs <= ghostStats.timeMs) {
         el.resultBanner.textContent = 'YOU BEAT THE GHOST';
         el.resultBanner.className = 'result-banner win';
         playVictoryFanfare();
+        playMikuVoice('you_got_it', 0.95);
       } else {
         el.resultBanner.textContent = 'THE GHOST GOT YOU';
         el.resultBanner.className = 'result-banner lose';
@@ -1927,7 +1930,10 @@
       el.statCardGhost.classList.add('hidden');
       el.resultBanner.textContent = playerStats.accuracy === 100 ? 'PERFECT RUN. SCORE RECORDED.' : 'SCORE RECORDED';
       el.resultBanner.className = 'result-banner recorded';
-      if (playerStats.accuracy === 100) playVictoryFanfare();
+      if (playerStats.accuracy === 100) {
+        playVictoryFanfare();
+        playMikuVoice('you_got_it', 0.95);
+      }
     }
 
     updateLobbyState();
@@ -2274,7 +2280,7 @@
     updateLobbyState();
 
     preloadPopipoAudio();
-    preloadMikuVoices();
+    preloadMikuVoiceClips();
 
     // Auto-join if ?room=CODE in URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -2291,6 +2297,7 @@
   const onFirstInteraction = () => {
     document.removeEventListener('click', onFirstInteraction);
     document.removeEventListener('keydown', onFirstInteraction);
+    preloadMikuVoiceClips();
     if ((screens.lobby.classList.contains('active') || screens.results.classList.contains('active')) && !isMuted) {
       startLobbyBGM(0.88);
     }
