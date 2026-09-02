@@ -1171,6 +1171,24 @@
     }
   }
 
+  function formatTimeAgo(dateStr) {
+    if (!dateStr) return 'Just now';
+    try {
+      const utcStr = dateStr.includes('Z') || dateStr.includes('+') ? dateStr : dateStr.replace(' ', 'T') + 'Z';
+      const past = new Date(utcStr).getTime();
+      const diffSec = Math.max(0, Math.floor((Date.now() - past) / 1000));
+      if (diffSec < 45) return 'Just now';
+      const diffMin = Math.floor(diffSec / 60);
+      if (diffMin < 60) return `${diffMin}m ago`;
+      const diffHr = Math.floor(diffMin / 60);
+      if (diffHr < 24) return `${diffHr}h ago`;
+      const diffDays = Math.floor(diffHr / 24);
+      return `${diffDays}d ago`;
+    } catch (e) {
+      return 'Recent';
+    }
+  }
+
   async function loadLeaderboardRankings() {
     el.leaderboardTbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--text-muted);">Loading rankings...</td></tr>`;
     try {
@@ -1189,6 +1207,7 @@
         const winRate = player.matches_played > 0
           ? Math.round((player.matches_won / player.matches_played) * 100) + '%'
           : '—';
+        const bestWpmText = player.best_wpm > 0 ? `${player.best_wpm} WPM` : '—';
         const isActive = currentUser && currentUser.id === player.id ? 'active-user' : '';
 
         return `
@@ -1197,12 +1216,13 @@
             <td>
               <div class="racer-cell">
                 <img class="racer-avatar" src="${player.avatar_url || 'miku.gif'}" alt="Avatar">
-                <span>${player.username}</span>
+                <span class="racer-name-text">${player.username}</span>
+                ${player.win_streak >= 3 ? `<span class="streak-flame" title="${player.win_streak} Match Win Streak">🔥${player.win_streak}</span>` : ''}
               </div>
             </td>
             <td style="color: #FFB300; font-weight: 700;">${player.mmr || 500}</td>
             <td>${tier}</td>
-            <td>${player.best_wpm || 0} WPM</td>
+            <td>${bestWpmText}</td>
             <td>${winRate}</td>
           </tr>
         `;
@@ -1226,48 +1246,77 @@
       }
 
       targetContainer.innerHTML = data.map(m => {
-        const isP1 = currentUser && currentUser.id === m.p1_id;
-        const isWinner = currentUser ? (m.winner_id === currentUser.id) : (m.winner_id === m.p1_id);
-        const matchTypeClass = m.is_ranked ? 'ranked' : 'custom';
-        const matchTypeLabel = m.is_ranked ? '⚔️ Ranked' : '🎮 Custom';
-        const outcomeClass = isWinner ? 'win' : 'lose';
-        const outcomeText = isWinner ? 'VICTORY' : 'DEFEAT';
-        const mmrDeltaText = m.is_ranked
-          ? (isP1 ? (m.p1_mmr_delta >= 0 ? `+${m.p1_mmr_delta}` : `${m.p1_mmr_delta}`) : (m.p2_mmr_delta >= 0 ? `+${m.p2_mmr_delta}` : `${m.p2_mmr_delta}`)) + ' MMR'
-          : '0 MMR';
-
         const p1Name = m.p1_name || 'Racer 1';
         const p2Name = m.p2_name || 'Racer 2';
         const p1Avatar = m.p1_avatar || 'miku.gif';
         const p2Avatar = m.p2_avatar || 'miku.gif';
-        const dateStr = (m.played_at || '').substring(11, 16) || 'Just now';
+        const isP1 = currentUser && currentUser.id === m.p1_id;
+        const isP2 = currentUser && currentUser.id === m.p2_id;
+        const isInvolved = isP1 || isP2;
+        const isP1Winner = (m.winner_id === m.p1_id);
+        const isP2Winner = (m.winner_id === m.p2_id);
+
+        const matchTypeClass = m.is_ranked ? 'ranked' : 'custom';
+        const matchTypeLabel = m.is_ranked ? '⚔️ Ranked' : '🎮 Custom';
+
+        let outcomeClass = 'win';
+        let outcomeText = 'VICTORY';
+        let mmrBadge = '';
+
+        if (m.is_ranked) {
+          if (isInvolved) {
+            const won = (currentUser.id === m.winner_id);
+            outcomeClass = won ? 'win' : 'lose';
+            outcomeText = won ? 'VICTORY' : 'DEFEAT';
+            const delta = isP1 ? m.p1_mmr_delta : m.p2_mmr_delta;
+            mmrBadge = delta >= 0 ? `+${delta} MMR` : `${delta} MMR`;
+          } else {
+            const winnerName = isP1Winner ? p1Name : (isP2Winner ? p2Name : 'TIE');
+            outcomeClass = 'win';
+            outcomeText = `🏆 ${winnerName}`;
+            mmrBadge = `+25 MMR`;
+          }
+        } else {
+          if (isInvolved) {
+            const won = (currentUser.id === m.winner_id);
+            outcomeClass = won ? 'win' : (m.winner_id ? 'lose' : 'custom');
+            outcomeText = won ? 'VICTORY' : (m.winner_id ? 'DEFEAT' : 'CUSTOM DUEL');
+          } else {
+            const winnerName = isP1Winner ? p1Name : (isP2Winner ? p2Name : 'Duel');
+            outcomeClass = 'win';
+            outcomeText = `🏆 ${winnerName}`;
+          }
+          mmrBadge = '0 MMR';
+        }
+
+        const dateStr = formatTimeAgo(m.played_at);
 
         return `
           <div class="match-history-card">
             <span class="match-type-badge ${matchTypeClass}">${matchTypeLabel}</span>
 
             <div class="match-fighters-row">
-              <div class="match-player-side">
+              <div class="match-player-side ${isP1Winner ? 'winner-side' : ''}">
                 <img class="match-player-avatar" src="${p1Avatar}" alt="P1">
                 <div>
-                  <div class="match-player-name">${p1Name}</div>
+                  <div class="match-player-name">${p1Name} ${isP1Winner ? '👑' : ''}</div>
                   <div class="match-player-stats">${m.p1_wpm} WPM · ${m.p1_acc}%</div>
                 </div>
               </div>
 
               <span class="match-vs-badge">VS</span>
 
-              <div class="match-player-side">
+              <div class="match-player-side ${isP2Winner ? 'winner-side' : ''}">
                 <img class="match-player-avatar" src="${p2Avatar}" alt="P2">
                 <div>
-                  <div class="match-player-name">${p2Name}</div>
+                  <div class="match-player-name">${p2Name} ${isP2Winner ? '👑' : ''}</div>
                   <div class="match-player-stats">${m.p2_wpm} WPM · ${m.p2_acc}%</div>
                 </div>
               </div>
             </div>
 
             <div style="display: flex; align-items: center; gap: 12px;">
-              <span class="match-outcome-badge ${outcomeClass}">${outcomeText} (${mmrDeltaText})</span>
+              <span class="match-outcome-badge ${outcomeClass}">${outcomeText} (${mmrBadge})</span>
               <span class="match-date-stamp">${dateStr}</span>
             </div>
           </div>

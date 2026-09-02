@@ -236,7 +236,8 @@ module.exports = {
     const res = await client.execute({
       sql: `SELECT id, username, avatar_url, mmr, best_wpm, avg_accuracy, matches_played, matches_won, win_streak, current_tier
             FROM users
-            ORDER BY mmr DESC, best_wpm DESC
+            WHERE id NOT LIKE 'guest_%'
+            ORDER BY mmr DESC, best_wpm DESC, matches_won DESC
             LIMIT ?`,
       args: [limit]
     });

@@ -729,7 +729,14 @@ wss.on('connection', (ws) => {
                 await db.updateUserStats(loserWs.user.id, { mmrDelta: loserDelta, wpm: loserStats.wpm, acc: loserStats.accuracy, won: false });
               }
 
-              if (p1.user && p2.user && !p1.user.id.startsWith('guest_') && !p2.user.id.startsWith('guest_')) {
+              if (p1.user && p1.user.id && p1.user.id.startsWith('guest_')) {
+                await db.createGuestUser({ id: p1.user.id, username: p1.user.username || 'Guest 1', avatarUrl: p1.user.avatar_url || null });
+              }
+              if (p2.user && p2.user.id && p2.user.id.startsWith('guest_')) {
+                await db.createGuestUser({ id: p2.user.id, username: p2.user.username || 'Guest 2', avatarUrl: p2.user.avatar_url || null });
+              }
+
+              if (p1.user && p2.user) {
                 await db.recordMatch({
                   id: session.id,
                   p1_id: p1.user.id,
@@ -777,10 +784,10 @@ wss.on('connection', (ws) => {
               }
             } else {
               // Custom Unranked Room — 0 MMR Delta
-              if (p1.user && p1.user.id) {
+              if (p1.user && p1.user.id && p1.user.id.startsWith('guest_')) {
                 await db.createGuestUser({ id: p1.user.id, username: p1.user.username || 'Guest 1', avatarUrl: p1.user.avatar_url || null });
               }
-              if (p2.user && p2.user.id) {
+              if (p2.user && p2.user.id && p2.user.id.startsWith('guest_')) {
                 await db.createGuestUser({ id: p2.user.id, username: p2.user.username || 'Guest 2', avatarUrl: p2.user.avatar_url || null });
               }
 

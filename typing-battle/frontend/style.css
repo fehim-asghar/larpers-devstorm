@@ -1062,6 +1062,26 @@ kbd {
   align-items: center;
   gap: 10px;
 }
+.racer-name-text {
+  font-weight: 600;
+}
+.streak-flame {
+  font-size: 0.75rem;
+  background: rgba(255, 68, 0, 0.18);
+  border: 1px solid rgba(255, 68, 0, 0.4);
+  padding: 1px 6px;
+  border-radius: 12px;
+  font-weight: 700;
+  color: #FF5500;
+}
+.match-player-side.winner-side {
+  border-left: 2px solid #39FF88;
+  padding-left: 6px;
+}
+.match-player-side.winner-side .match-player-name {
+  color: #39FF88;
+  font-weight: 700;
+}
 .racer-avatar {
   width: 26px;
   height: 26px;
