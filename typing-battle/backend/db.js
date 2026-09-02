@@ -1,5 +1,17 @@
 const path = require('path');
+const fs = require('fs');
 const { createClient } = require('@libsql/client');
+
+// Load .env if present
+try {
+  const envContent = fs.readFileSync(path.join(__dirname, '../.env'), 'utf8');
+  envContent.split('\n').forEach(line => {
+    const parts = line.trim().split('=');
+    if (parts.length >= 2 && parts[0] && !process.env[parts[0]]) {
+      process.env[parts[0]] = parts.slice(1).join('=');
+    }
+  });
+} catch (e) {}
 
 const isTurso = Boolean(process.env.TURSO_DATABASE_URL);
 const url = process.env.TURSO_DATABASE_URL || `file:${path.join(__dirname, 'syntax-rush.db')}`;
