@@ -162,6 +162,7 @@
   let onlineOpponentStats = null;
   let onlineOpponentFinished = false;
   let opponentWpmHistory = [];
+  let matchConcludingTimeout = null;
 
   // Phase 3: Error Taxonomy & Keystroke Diagnostics State
   let errorTaxonomy = { symbol: 0, letter: 0, whitespace: 0 };
@@ -1404,7 +1405,26 @@
           onlineOpponentFinished = true;
           onlineOpponentStats = data.stats;
           el.progressGhost.style.width = '100%';
+
+          // If current player is still typing in the arena, notify them and auto-finish after 2.5s
+          if (screens.arena.classList.contains('active') && !isExploding) {
+            el.modeBadge.textContent = 'RIVAL FINISHED! 2.5s TO WRAP UP';
+            el.modeBadge.classList.add('pulse-glow');
+            if (matchConcludingTimeout) clearTimeout(matchConcludingTimeout);
+            matchConcludingTimeout = setTimeout(() => {
+              if (screens.arena.classList.contains('active') && !isExploding) {
+                finishRace();
+              }
+            }, 2500);
+          } else if (screens.results.classList.contains('active')) {
+            // If winner is already on results screen, update opponent stats in real time!
+            updateOpponentResultsStats(data.stats, null);
+          }
         } else if (data.type === 'MATCH_RESULT') {
+          if (matchConcludingTimeout) {
+            clearTimeout(matchConcludingTimeout);
+            matchConcludingTimeout = null;
+          }
           if (data.isRanked && data.user) {
             currentUser = data.user;
             localStorage.setItem('syntax_user', JSON.stringify(currentUser));
@@ -1415,6 +1435,30 @@
           }
           if (data.won) playVictoryFanfare();
           else playDefeatChime();
+
+          if (data.opponentStats) {
+            onlineOpponentStats = data.opponentStats;
+          }
+
+          if (screens.arena.classList.contains('active')) {
+            // If loser was still in arena, transition them to results now!
+            const myFinalStats = data.myStats || {
+              wpm: calcWPM(),
+              accuracy: calcAccuracy(),
+              consistency: calcConsistency(),
+              timeMs: Math.round(elapsedMs || (performance.now() - startTime)),
+              errorTaxonomy: { ...errorTaxonomy },
+              fumbledKeys: { ...fumbledKeysMap }
+            };
+            cancelAnimationFrame(timerRAF);
+            if (ghostRAF) cancelAnimationFrame(ghostRAF);
+            el.hiddenInput.removeEventListener('keydown', handleKeystroke);
+            el.hiddenInput.blur();
+            showResults(myFinalStats, data.opponentStats);
+          } else if (screens.results.classList.contains('active')) {
+            // If winner is already on results, update opponent card with loser's real stats!
+            updateOpponentResultsStats(data.opponentStats, data.myStats);
+          }
 
           if (screens.results.classList.contains('active')) {
             if (!data.isRanked) {
@@ -1640,6 +1684,21 @@
   // ══════════════════════════════════════════════════════
   // Telemetry & Results
   // ══════════════════════════════════════════════════════
+  function updateOpponentResultsStats(oppStats, myStats) {
+    if (!oppStats || !el.statCardGhost) return;
+    el.statCardGhost.classList.remove('hidden');
+    el.statGWpm.textContent = oppStats.wpm || 0;
+    el.statGAcc.textContent = (oppStats.accuracy !== undefined ? oppStats.accuracy : 100) + '%';
+    el.statGTime.textContent = ((oppStats.timeMs || 0) / 1000).toFixed(1) + 's';
+
+    const pTime = myStats?.timeMs || (calcWPM() ? Math.round(elapsedMs) : 0);
+    if (pTime && oppStats.timeMs && oppStats.timeMs < 900000) {
+      const deltaMs = pTime - oppStats.timeMs;
+      const deltaSec = (Math.abs(deltaMs) / 1000).toFixed(1);
+      el.statDelta.textContent = (deltaMs <= 0 ? '-' : '+') + deltaSec + 's';
+    }
+  }
+
   function showResults(playerStats, ghostStats) {
     switchScreen('results');
     if (el.tierPromotionBanner) el.tierPromotionBanner.classList.add('hidden');
@@ -1691,16 +1750,10 @@
 
     if (mode === 'online') {
       el.statCardGhost.classList.remove('hidden');
-      if (ghostStats) {
-        el.statGWpm.textContent = ghostStats.wpm;
-        el.statGAcc.textContent = ghostStats.accuracy + '%';
-        el.statGTime.textContent = (ghostStats.timeMs / 1000).toFixed(1) + 's';
-
-        const deltaMs = playerStats.timeMs - ghostStats.timeMs;
-        const deltaSec = (deltaMs / 1000).toFixed(1);
-        el.statDelta.textContent = (deltaMs >= 0 ? '+' : '') + deltaSec + 's';
-
-        if (playerStats.timeMs <= ghostStats.timeMs) {
+      const opp = ghostStats || onlineOpponentStats;
+      if (opp) {
+        updateOpponentResultsStats(opp, playerStats);
+        if (playerStats.timeMs <= opp.timeMs) {
           el.resultBanner.textContent = 'VICTORY — YOU WON THE DUEL!';
           el.resultBanner.className = 'result-banner win';
         } else {

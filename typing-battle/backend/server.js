@@ -311,6 +311,31 @@ function computeMmrDeltas(winnerUser, loserUser, winnerStats, loserStats) {
   return { winnerDelta, loserDelta, bonuses };
 }
 
+function derivePlayerLiveStats(playerWs, paragraph, sentAt) {
+  if (!playerWs) {
+    return { wpm: 0, accuracy: 100, timeMs: 999999, errorTaxonomy: { symbol: 0, letter: 0, whitespace: 0 }, fumbledKeys: null };
+  }
+  const quoteLen = paragraph ? paragraph.length : 100;
+  const now = Date.now();
+  const firstKey = playerWs.firstKeyAt || ((sentAt || now - 5000) + 1800);
+  const lastKey = playerWs.lastKeyAt || now;
+  const durationMs = Math.max(500, lastKey - firstKey);
+  const totalKeystrokes = playerWs.serverTotalKeystrokes || 0;
+  const streamErrors = playerWs.serverErrors || 0;
+  const correctKeystrokes = Math.max(0, totalKeystrokes - streamErrors);
+  const wpm = Math.min(240, Math.max(0, Math.round(((correctKeystrokes / 5) / (durationMs / 60000)))));
+  const acc = (totalKeystrokes > 0)
+    ? Math.max(0, Math.min(100, Math.round((correctKeystrokes / totalKeystrokes) * 100)))
+    : 100;
+  return {
+    wpm,
+    accuracy: acc,
+    timeMs: durationMs,
+    errorTaxonomy: playerWs.serverTaxonomy || { symbol: 0, letter: 0, whitespace: 0 },
+    fumbledKeys: null
+  };
+}
+
 // ─── WebSocket Heartbeat (detect dead sockets) ───
 const WS_PING_INTERVAL = 30000; // 30s
 setInterval(() => {
@@ -642,10 +667,20 @@ wss.on('connection', (ws) => {
 
             const p1 = session.p1;
             const p2 = session.p2;
-            const s1 = session.p1Stats || { timeMs: 999999, wpm: 0, accuracy: 0 };
-            const s2 = session.p2Stats || { timeMs: 999999, wpm: 0, accuracy: 0 };
+            const s1 = session.p1Stats || derivePlayerLiveStats(p1, session.paragraph, session.matchStartSentAt);
+            const s2 = session.p2Stats || derivePlayerLiveStats(p2, session.paragraph, session.matchStartSentAt);
 
-            const p1Won = s1.timeMs <= s2.timeMs;
+            const p1Finished = Boolean(session.p1Stats);
+            const p2Finished = Boolean(session.p2Stats);
+            let p1Won;
+            if (p1Finished && !p2Finished) {
+              p1Won = true;
+            } else if (!p1Finished && p2Finished) {
+              p1Won = false;
+            } else {
+              p1Won = s1.timeMs <= s2.timeMs;
+            }
+
             const winnerWs = p1Won ? p1 : p2;
             const loserWs = p1Won ? p2 : p1;
             const winnerStats = p1Won ? s1 : s2;
@@ -688,13 +723,33 @@ wss.on('connection', (ws) => {
               const updatedLoserUser = (loserWs.user && !loserWs.user.id.startsWith('guest_')) ? db.getUserById(loserWs.user.id) : { ...loserWs.user, mmr: Math.max(0, (loserWs.user?.mmr || 500) + loserDelta) };
 
               if (winnerWs.readyState === 1) {
-                winnerWs.send(JSON.stringify({ type: 'MATCH_RESULT', won: true, mmrDelta: winnerDelta, isRanked: true, user: updatedWinnerUser, bonuses, tierPromotion: winnerPromotion }));
+                winnerWs.send(JSON.stringify({
+                  type: 'MATCH_RESULT',
+                  won: true,
+                  mmrDelta: winnerDelta,
+                  isRanked: true,
+                  user: updatedWinnerUser,
+                  bonuses,
+                  tierPromotion: winnerPromotion,
+                  myStats: winnerStats,
+                  opponentStats: loserStats
+                }));
               }
               if (loserWs.readyState === 1) {
-                loserWs.send(JSON.stringify({ type: 'MATCH_RESULT', won: false, mmrDelta: loserDelta, isRanked: true, user: updatedLoserUser, bonuses: [], tierPromotion: loserPromotion }));
+                loserWs.send(JSON.stringify({
+                  type: 'MATCH_RESULT',
+                  won: false,
+                  mmrDelta: loserDelta,
+                  isRanked: true,
+                  user: updatedLoserUser,
+                  bonuses: [],
+                  tierPromotion: loserPromotion,
+                  myStats: loserStats,
+                  opponentStats: winnerStats
+                }));
               }
             } else {
-              // Custom Unranked Room — 0 MMR Delta (Log match with is_ranked: 0, 0 MMR delta)
+              // Custom Unranked Room — 0 MMR Delta
               if (p1.user && p1.user.id) {
                 db.createGuestUser({ id: p1.user.id, username: p1.user.username || 'Guest 1', avatarUrl: p1.user.avatar_url || null });
               }
@@ -720,10 +775,28 @@ wss.on('connection', (ws) => {
               }
 
               if (winnerWs.readyState === 1) {
-                winnerWs.send(JSON.stringify({ type: 'MATCH_RESULT', won: true, mmrDelta: 0, isRanked: false, user: winnerWs.user, bonuses: ['🎮 Custom Duel (0 MMR)'] }));
+                winnerWs.send(JSON.stringify({
+                  type: 'MATCH_RESULT',
+                  won: true,
+                  mmrDelta: 0,
+                  isRanked: false,
+                  user: winnerWs.user,
+                  bonuses: ['🎮 Custom Duel (0 MMR)'],
+                  myStats: winnerStats,
+                  opponentStats: loserStats
+                }));
               }
               if (loserWs.readyState === 1) {
-                loserWs.send(JSON.stringify({ type: 'MATCH_RESULT', won: false, mmrDelta: 0, isRanked: false, user: loserWs.user, bonuses: ['🎮 Custom Duel (0 MMR)'] }));
+                loserWs.send(JSON.stringify({
+                  type: 'MATCH_RESULT',
+                  won: false,
+                  mmrDelta: 0,
+                  isRanked: false,
+                  user: loserWs.user,
+                  bonuses: ['🎮 Custom Duel (0 MMR)'],
+                  myStats: loserStats,
+                  opponentStats: winnerStats
+                }));
               }
             }
           };
@@ -731,7 +804,8 @@ wss.on('connection', (ws) => {
           if (session.p1Stats && session.p2Stats) {
             resolveMatch();
           } else {
-            setTimeout(resolveMatch, 7000);
+            // Give un-finished player 2.5s grace to wrap up before deriving partial stream stats
+            setTimeout(resolveMatch, 2500);
           }
         }
       }
