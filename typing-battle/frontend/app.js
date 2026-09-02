@@ -31,6 +31,8 @@
     btnAudioToggle: $('btn-audio-toggle'),
     audioToggleIcon: $('audio-toggle-icon'),
     audioToggleText: $('audio-toggle-text'),
+    btnAudioToggleLobby: $('btn-audio-toggle-lobby'),
+    btnQuitArena: $('btn-quit-arena'),
     textDisplay: $('text-display'),
     hudWpm: $('hud-wpm'),
     hudTime: $('hud-time'),
@@ -563,20 +565,34 @@
     try {
       localStorage.setItem('typeghost_muted', isMuted ? 'true' : 'false');
     } catch (e) { }
-    if (isMuted) stopLobbyBGM();
-    else if (screens.lobby.classList.contains('active') || screens.results.classList.contains('active')) startLobbyBGM(0.88);
+    if (isMuted) {
+      stopLobbyBGM();
+    } else {
+      ensureAudio();
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+      }
+      if (screens.lobby.classList.contains('active') || screens.results.classList.contains('active')) {
+        startLobbyBGM(0.88);
+      }
+    }
     updateAudioUI();
   }
 
   function updateAudioUI() {
-    if (isMuted) {
-      el.audioToggleIcon.textContent = '🔇';
-      el.audioToggleText.textContent = 'MUTED';
-      el.btnAudioToggle.classList.add('muted');
-    } else {
-      el.audioToggleIcon.textContent = '🔊';
-      el.audioToggleText.textContent = 'SFX ON';
-      el.btnAudioToggle.classList.remove('muted');
+    const icon = isMuted ? '🔇' : '🔊';
+    const text = isMuted ? 'MUTED' : 'MUSIC ON';
+    
+    if (el.audioToggleIcon) el.audioToggleIcon.textContent = icon;
+    if (el.audioToggleText) el.audioToggleText.textContent = text;
+    if (el.btnAudioToggle) el.btnAudioToggle.classList.toggle('muted', isMuted);
+
+    if (el.btnAudioToggleLobby) {
+      el.btnAudioToggleLobby.classList.toggle('muted', isMuted);
+      const lobbyIcon = el.btnAudioToggleLobby.querySelector('.audio-icon');
+      const lobbyLabel = el.btnAudioToggleLobby.querySelector('.audio-label');
+      if (lobbyIcon) lobbyIcon.textContent = icon;
+      if (lobbyLabel) lobbyLabel.textContent = text;
     }
   }
 
@@ -806,8 +822,12 @@
   }
 
   function handleKeystroke(e) {
-    if (e.ctrlKey || e.altKey || e.metaKey) return;
-    if (e.key === 'Tab' || e.key === 'Escape') return;
+    if (e.key === 'Tab') return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      quitCurrentMatch();
+      return;
+    }
     if (charIndex >= paragraph.length || isPaused || isExploding) return;
 
     const chars = getChars();
@@ -1737,7 +1757,49 @@
   // ══════════════════════════════════════════════════════
   // Countdown & Start
   // ══════════════════════════════════════════════════════
+  let countdownInterval = null;
+
+  function cancelCountdown() {
+    if (countdownInterval) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+    }
+    el.countdown.classList.add('hidden');
+  }
+
+  function quitCurrentMatch() {
+    cancelCountdown();
+    if (timerRAF) {
+      cancelAnimationFrame(timerRAF);
+      timerRAF = null;
+    }
+    if (ghostRAF) {
+      cancelAnimationFrame(ghostRAF);
+      ghostRAF = null;
+    }
+    stopDrone();
+
+    el.hiddenInput.removeEventListener('keydown', handleKeystroke);
+    el.hiddenInput.blur();
+
+    if (mode === 'online' && ws && ws.readyState === 1) {
+      try {
+        ws.send(JSON.stringify({ type: 'LEAVE_MATCH' }));
+      } catch (e) {}
+    }
+
+    mode = null;
+    isTransitioningResults = false;
+    currentSession = null;
+    isPaused = false;
+    el.pauseOverlay.classList.add('hidden');
+
+    switchScreen('lobby');
+    updateLobbyState();
+  }
+
   function startCountdown(onGo) {
+    cancelCountdown();
     let count = 3;
     el.countdown.classList.remove('hidden');
     el.countdownNum.textContent = count;
@@ -1746,7 +1808,7 @@
     el.countdownNum.style.animation = '';
     if (!playMikuVoice('3')) playBeep(660, 0.1);
 
-    const iv = setInterval(() => {
+    countdownInterval = setInterval(() => {
       count--;
       if (count > 0) {
         el.countdownNum.textContent = count;
@@ -1761,7 +1823,8 @@
         el.countdownNum.style.animation = '';
         if (!playMikuVoice('go')) playBeep(1320, 0.15);
       } else {
-        clearInterval(iv);
+        clearInterval(countdownInterval);
+        countdownInterval = null;
         el.countdown.classList.add('hidden');
         onGo();
       }
@@ -2199,9 +2262,18 @@
     }
   });
 
+  if (el.btnQuitArena) el.btnQuitArena.addEventListener('click', quitCurrentMatch);
+  if (el.btnAudioToggleLobby) el.btnAudioToggleLobby.addEventListener('click', toggleAudio);
+
   // Keyboard Shortcuts
   document.addEventListener('keydown', e => {
-    if (screens.arena.classList.contains('active')) return;
+    if (screens.arena.classList.contains('active')) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        quitCurrentMatch();
+      }
+      return;
+    }
 
     if (e.code === 'Space') {
       e.preventDefault();
