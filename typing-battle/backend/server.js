@@ -28,22 +28,22 @@ const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 const db = require('./db');
 
 // Persistent SQLite Session Token Store
-function createSessionToken(userId) {
+async function createSessionToken(userId) {
   const token = 'tok_' + crypto.randomBytes(24).toString('hex');
   const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
-  db.createSession(token, userId, expiresAt);
+  await db.createSession(token, userId, expiresAt);
   return token;
 }
 
-function getUserFromSessionToken(token) {
+async function getUserFromSessionToken(token) {
   if (!token || typeof token !== 'string') return null;
-  const session = db.getSession(token);
+  const session = await db.getSession(token);
   if (!session) return null;
   if (Date.now() > session.expires_at) {
-    db.deleteSession(token);
+    await db.deleteSession(token);
     return null;
   }
-  return db.getUserById(session.user_id);
+  return await db.getUserById(session.user_id);
 }
 
 let quotes = [];
@@ -61,7 +61,7 @@ function getRandomQuote(tier = 1) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-function checkTierPromotion(user, stats, activeTier) {
+async function checkTierPromotion(user, stats, activeTier) {
   if (!user || !user.id || user.id.startsWith('guest_')) return null;
   const currentTier = user.current_tier || 1;
   const acc = stats.accuracy || 0;
@@ -71,13 +71,13 @@ function checkTierPromotion(user, stats, activeTier) {
   if (currentTier === 1 && activeTier === 1) {
     // Tier 1 -> Tier 2 Gate: Accuracy >= 93% AND WPM >= 30
     if (acc >= 93 && wpm >= 30) {
-      db.updateUserTier(user.id, 2);
+      await db.updateUserTier(user.id, 2);
       return { unlockedTier: 2, title: 'TIER 2 · SYMBOLS & OPERATORS', desc: 'Unlocked brackets, operators, colons & assignments!' };
     }
   } else if (currentTier === 2 && activeTier === 2) {
     // Tier 2 -> Tier 3 Gate: Accuracy >= 90% AND WPM >= 40 AND Symbol Errors <= 3
     if (acc >= 90 && wpm >= 40 && symbolErrors <= 3) {
-      db.updateUserTier(user.id, 3);
+      await db.updateUserTier(user.id, 3);
       return { unlockedTier: 3, title: 'TIER 3 · REAL MULTI-LINE SYNTAX', desc: 'Unlocked multi-line JS, Python, SQL, Rust & C++!' };
     }
   }
@@ -156,8 +156,8 @@ app.post('/api/auth/google', async (req, res) => {
       return res.status(400).json({ error: 'Missing credential or mockUser' });
     }
 
-    const user = db.upsertGoogleUser({ googleId, username, avatarUrl });
-    const token = createSessionToken(user.id);
+    const user = await db.upsertGoogleUser({ googleId, username, avatarUrl });
+    const token = await createSessionToken(user.id);
     return res.json({ success: true, user, token });
   } catch (err) {
     console.error('Google Auth Error:', err);
@@ -165,22 +165,22 @@ app.post('/api/auth/google', async (req, res) => {
   }
 });
 
-app.get('/api/profile/me', (req, res) => {
+app.get('/api/profile/me', async (req, res) => {
   // Authenticated: derive userId from session token, not query param
   const token = (req.headers.authorization || '').replace('Bearer ', '');
-  const authUser = getUserFromSessionToken(token);
+  const authUser = await getUserFromSessionToken(token);
   // Fallback to query param for backward compat with leaderboard lookups (public data only)
   const userId = authUser ? authUser.id : req.query.userId;
   if (!userId) return res.status(400).json({ error: 'Missing userId' });
-  const user = db.getUserById(userId);
+  const user = await db.getUserById(userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
   return res.json({ user });
 });
 
-app.get('/api/leaderboard', (req, res) => {
+app.get('/api/leaderboard', async (req, res) => {
   try {
     const limit = Math.min(100, parseInt(req.query.limit) || 50);
-    const leaderboard = db.getLeaderboard(limit);
+    const leaderboard = await db.getLeaderboard(limit);
     return res.json(leaderboard);
   } catch (err) {
     console.error('Leaderboard error:', err);
@@ -188,11 +188,11 @@ app.get('/api/leaderboard', (req, res) => {
   }
 });
 
-app.get('/api/matches/recent', (req, res) => {
+app.get('/api/matches/recent', async (req, res) => {
   try {
     const userId = req.query.userId || null;
     const limit = Math.min(50, parseInt(req.query.limit) || 20);
-    const matches = db.getRecentMatches(userId, limit);
+    const matches = await db.getRecentMatches(userId, limit);
     return res.json(matches);
   } catch (err) {
     console.error('Recent matches error:', err);
@@ -201,9 +201,9 @@ app.get('/api/matches/recent', (req, res) => {
 });
 
 // Admin / Server Stats Overview (Total users, matches, live connections)
-app.get('/api/stats', (req, res) => {
+app.get('/api/stats', async (req, res) => {
   try {
-    const dbStats = db.getStats();
+    const dbStats = await db.getStats();
     return res.json({
       success: true,
       totalRegisteredUsers: dbStats.totalUsers,
@@ -220,22 +220,22 @@ app.get('/api/stats', (req, res) => {
 });
 
 // Phase 4: Solo Practice Tier Finish & Evaluation Endpoint (Authenticated)
-app.post('/api/practice/finish', (req, res) => {
+app.post('/api/practice/finish', async (req, res) => {
   try {
     // Derive userId from session token — never trust client-supplied userId
     const token = (req.headers.authorization || '').replace('Bearer ', '');
-    const authUser = getUserFromSessionToken(token);
+    const authUser = await getUserFromSessionToken(token);
     if (!authUser) return res.status(401).json({ error: 'Authentication required for tier progression.' });
 
     const { stats, tier } = req.body;
     if (!stats) return res.status(400).json({ error: 'Missing stats' });
 
-    const user = db.getUserById(authUser.id);
+    const user = await db.getUserById(authUser.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const activeTier = parseInt(tier) || 1;
-    const tierPromotion = checkTierPromotion(user, stats, activeTier);
-    const updatedUser = db.getUserById(authUser.id);
+    const tierPromotion = await checkTierPromotion(user, stats, activeTier);
+    const updatedUser = await db.getUserById(authUser.id);
     return res.json({ success: true, tierPromotion, user: updatedUser });
   } catch (err) {
     console.error('Practice finish error:', err);
@@ -380,7 +380,7 @@ wss.on('connection', (ws) => {
   };
   ws.roomCode = null;
 
-  ws.on('message', (msgStr) => {
+  ws.on('message', async (msgStr) => {
     try {
       // Per-socket message throttle: max 200 msgs/sec (generous for typing)
       const now = Date.now();
@@ -395,7 +395,7 @@ wss.on('connection', (ws) => {
 
       // ─── 0. Session Authentication ───
       if (msg.type === 'AUTH') {
-        const authUser = getUserFromSessionToken(msg.token);
+        const authUser = await getUserFromSessionToken(msg.token);
         if (authUser) {
           ws.user = authUser;
           ws.send(JSON.stringify({ type: 'AUTH_SUCCESS', user: authUser }));
@@ -658,7 +658,7 @@ wss.on('connection', (ws) => {
           if (session.p1 === ws) session.p1Stats = sanitizedStats;
           if (session.p2 === ws) session.p2Stats = sanitizedStats;
 
-          const resolveMatch = () => {
+          const resolveMatch = async () => {
             if (session.isResolved) return;
             session.isResolved = true;
 
@@ -683,8 +683,8 @@ wss.on('connection', (ws) => {
             const winnerStats = p1Won ? s1 : s2;
             const loserStats = p1Won ? s2 : s1;
 
-            const p1Promotion = checkTierPromotion(p1.user, s1, session.tier || 1);
-            const p2Promotion = checkTierPromotion(p2.user, s2, session.tier || 1);
+            const p1Promotion = await checkTierPromotion(p1.user, s1, session.tier || 1);
+            const p2Promotion = await checkTierPromotion(p2.user, s2, session.tier || 1);
             const winnerPromotion = p1Won ? p1Promotion : p2Promotion;
             const loserPromotion = p1Won ? p2Promotion : p1Promotion;
 
@@ -693,14 +693,14 @@ wss.on('connection', (ws) => {
 
               // Update SQLite database for ranked
               if (winnerWs.user && winnerWs.user.id && !winnerWs.user.id.startsWith('guest_')) {
-                db.updateUserStats(winnerWs.user.id, { mmrDelta: winnerDelta, wpm: winnerStats.wpm, acc: winnerStats.accuracy, won: true });
+                await db.updateUserStats(winnerWs.user.id, { mmrDelta: winnerDelta, wpm: winnerStats.wpm, acc: winnerStats.accuracy, won: true });
               }
               if (loserWs.user && loserWs.user.id && !loserWs.user.id.startsWith('guest_')) {
-                db.updateUserStats(loserWs.user.id, { mmrDelta: loserDelta, wpm: loserStats.wpm, acc: loserStats.accuracy, won: false });
+                await db.updateUserStats(loserWs.user.id, { mmrDelta: loserDelta, wpm: loserStats.wpm, acc: loserStats.accuracy, won: false });
               }
 
               if (p1.user && p2.user && !p1.user.id.startsWith('guest_') && !p2.user.id.startsWith('guest_')) {
-                db.recordMatch({
+                await db.recordMatch({
                   id: session.id,
                   p1_id: p1.user.id,
                   p2_id: p2.user.id,
@@ -716,8 +716,8 @@ wss.on('connection', (ws) => {
                 });
               }
 
-              const updatedWinnerUser = (winnerWs.user && !winnerWs.user.id.startsWith('guest_')) ? db.getUserById(winnerWs.user.id) : { ...winnerWs.user, mmr: Math.max(0, (winnerWs.user?.mmr || 500) + winnerDelta) };
-              const updatedLoserUser = (loserWs.user && !loserWs.user.id.startsWith('guest_')) ? db.getUserById(loserWs.user.id) : { ...loserWs.user, mmr: Math.max(0, (loserWs.user?.mmr || 500) + loserDelta) };
+              const updatedWinnerUser = (winnerWs.user && !winnerWs.user.id.startsWith('guest_')) ? await db.getUserById(winnerWs.user.id) : { ...winnerWs.user, mmr: Math.max(0, (winnerWs.user?.mmr || 500) + winnerDelta) };
+              const updatedLoserUser = (loserWs.user && !loserWs.user.id.startsWith('guest_')) ? await db.getUserById(loserWs.user.id) : { ...loserWs.user, mmr: Math.max(0, (loserWs.user?.mmr || 500) + loserDelta) };
 
               if (winnerWs.readyState === 1) {
                 winnerWs.send(JSON.stringify({
@@ -748,14 +748,14 @@ wss.on('connection', (ws) => {
             } else {
               // Custom Unranked Room — 0 MMR Delta
               if (p1.user && p1.user.id) {
-                db.createGuestUser({ id: p1.user.id, username: p1.user.username || 'Guest 1', avatarUrl: p1.user.avatar_url || null });
+                await db.createGuestUser({ id: p1.user.id, username: p1.user.username || 'Guest 1', avatarUrl: p1.user.avatar_url || null });
               }
               if (p2.user && p2.user.id) {
-                db.createGuestUser({ id: p2.user.id, username: p2.user.username || 'Guest 2', avatarUrl: p2.user.avatar_url || null });
+                await db.createGuestUser({ id: p2.user.id, username: p2.user.username || 'Guest 2', avatarUrl: p2.user.avatar_url || null });
               }
 
               if (p1.user && p2.user) {
-                db.recordMatch({
+                await db.recordMatch({
                   id: session.id,
                   p1_id: p1.user.id,
                   p2_id: p2.user.id,
@@ -904,8 +904,8 @@ wss.on('connection', (ws) => {
   });
 
   // ─── 6. Cleanup on Disconnect / Forfeit ───
-  ws.on('close', () => {
-    rankedQueue = rankedQueue.filter(p => p.ws !== ws);
+  ws.on('close', async () => {
+    rankedQueue = rankedQueue.filter(entry => entry.ws !== ws);
 
     if (ws.roomCode && customRooms.has(ws.roomCode)) {
       const room = customRooms.get(ws.roomCode);
@@ -931,13 +931,13 @@ wss.on('connection', (ws) => {
         const { winnerDelta } = computeMmrDeltas(winnerWs.user, ws.user, { wpm: 70, accuracy: 100, timeMs: 1000 }, { timeMs: 999999, wpm: 0, accuracy: 0 });
         
         if (winnerWs.user && !winnerWs.user.id.startsWith('guest_')) {
-          db.updateUserStats(winnerWs.user.id, { mmrDelta: winnerDelta, wpm: 0, acc: 100, won: true });
+          await db.updateUserStats(winnerWs.user.id, { mmrDelta: winnerDelta, wpm: 0, acc: 100, won: true });
         }
         if (ws.user && !ws.user.id.startsWith('guest_')) {
-          db.updateUserStats(ws.user.id, { mmrDelta: -15, wpm: 0, acc: 0, won: false });
+          await db.updateUserStats(ws.user.id, { mmrDelta: -15, wpm: 0, acc: 0, won: false });
         }
 
-        const updatedWinner = (winnerWs.user && !winnerWs.user.id.startsWith('guest_')) ? db.getUserById(winnerWs.user.id) : { ...winnerWs.user, mmr: (winnerWs.user?.mmr || 500) + winnerDelta };
+        const updatedWinner = (winnerWs.user && !winnerWs.user.id.startsWith('guest_')) ? await db.getUserById(winnerWs.user.id) : { ...winnerWs.user, mmr: (winnerWs.user?.mmr || 500) + winnerDelta };
         winnerWs.send(JSON.stringify({
           type: 'OPPONENT_DISCONNECTED',
           matchResult: {
